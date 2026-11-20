@@ -26,14 +26,15 @@ class DistributionPoint(BaseModel):
 
 class AdminDashboard(BaseModel):
     stats: list[StatCard]
-    program_distribution: list[DistributionPoint]
-    class_section_distribution: list[DistributionPoint]
-    attendance_trend: list[SeriesPoint]            # last 7 working days
-    examination_performance: list[SeriesPoint]     # average % per exam type
+    program_distribution: list[DistributionPoint]      # enrolment donut
+    class_comparison: list[DistributionPoint]          # horizontal bar
+    examination_performance: list[SeriesPoint]         # avg % per exam type
+    fee_collection_trend: list[SeriesPoint]            # monthly collected amount
     fee_collection: list[StatCard]
     outstanding_balance: float
     recent_notices: list[dict[str, Any]]
     recent_activity: list[dict[str, Any]]
+    top_performers: list[dict[str, Any]]   # achievement cards (real data only)
 
 
 class TeacherDashboard(BaseModel):
@@ -41,9 +42,10 @@ class TeacherDashboard(BaseModel):
     assigned_classes: list[dict[str, Any]]
     assigned_subjects: list[dict[str, Any]]
     today_timetable: list[dict[str, Any]]
-    attendance_summary: dict[str, Any]
+    weekly_timetable: list[dict[str, Any]]             # full week, with names
+    class_distribution: list[DistributionPoint]        # students per assigned class
     upcoming_examinations: list[dict[str, Any]]
-    student_performance: list[dict[str, Any]]
+    student_performance: list[dict[str, Any]]          # avg % per subject
     recent_notices: list[dict[str, Any]]
     workload: dict[str, Any]
 
@@ -51,7 +53,9 @@ class TeacherDashboard(BaseModel):
 class StudentDashboard(BaseModel):
     stats: list[StatCard]
     attendance_percentage: float
+    attendance_breakdown: dict[str, Any]               # present/absent/leave donut
     subject_marks: list[dict[str, Any]]
+    lecture_overview: list[dict[str, Any]]             # today's lectures
     recent_examinations: list[dict[str, Any]]
     recent_materials: list[dict[str, Any]]
     notices: list[dict[str, Any]]
