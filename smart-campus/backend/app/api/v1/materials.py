@@ -57,8 +57,12 @@ async def list_materials(
 @router.get("/{material_id}/download")
 async def download(material_id: str, user: User = Depends(get_current_user), db: AsyncSession = Depends(get_db)):
     material, stream = await material_service.download(db, user, material_id)
+    # Sanitize the filename for the Content-Disposition header: strip CR/LF and
+    # double quotes so a maliciously-named upload cannot inject header fields.
+    raw_name = material.file_name or "download"
+    safe_name = "".join(ch for ch in raw_name if ch not in "\r\n\"").strip() or "download"
     return StreamingResponse(stream, media_type=material.content_type,
-                             headers={"Content-Disposition": f'attachment; filename="{material.file_name}"'})
+                             headers={"Content-Disposition": f'attachment; filename="{safe_name}"'})
 
 
 @router.delete("/{material_id}", dependencies=[Depends(require_staff())])

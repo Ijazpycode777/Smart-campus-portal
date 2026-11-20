@@ -3,7 +3,7 @@ from __future__ import annotations
 
 from typing import Any
 
-from sqlalchemy import select
+from sqlalchemy import select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.exceptions import ConflictError, ValidationError
@@ -76,7 +76,9 @@ async def update_teacher(db: AsyncSession, actor: User, teacher: Teacher, data: 
 
 async def toggle_active(db: AsyncSession, actor: User, teacher: Teacher, active: bool) -> Teacher:
     teacher.employment_status = "active" if active else "inactive"
-    teacher.user.is_active = active
+    # Explicit UPDATE on the linked user — see note in student_service.toggle_active:
+    # ``teacher.user`` is a lazy relationship and must not be navigated under async.
+    await db.execute(update(User).where(User.id == teacher.user_id).values(is_active=active))
     await record_audit(
         db, actor_id=actor.id, actor_role=actor.role,
         action=f"teacher.{'activate' if active else 'deactivate'}",

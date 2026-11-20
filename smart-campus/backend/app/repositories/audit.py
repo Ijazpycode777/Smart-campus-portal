@@ -9,6 +9,9 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.models.audit import AuditLog
 from app.utils.helpers import now_utc
 
+# Columns that must never be written to the audit log, even defensively.
+_SENSITIVE_COLUMNS = frozenset({"password_hash", "token", "session_token", "csrf_token"})
+
 
 async def record_audit(
     db: AsyncSession,
@@ -48,11 +51,18 @@ async def record_audit(
 
 
 async def snapshot(model: Any) -> dict[str, Any]:
-    """Best-effort JSON-serializable snapshot of a model instance."""
+    """Best-effort JSON-serializable snapshot of a model instance.
+
+    Sensitive columns (password hashes, tokens) are always redacted so they can
+    never leak into the audit log, even if a caller snapshots a User/Session.
+    """
     if model is None:
         return {}
     out: dict[str, Any] = {}
     for col in model.__table__.columns:  # type: ignore[attr-defined]
+        if col.name in _SENSITIVE_COLUMNS:
+            out[col.name] = "[REDACTED]"
+            continue
         try:
             out[col.name] = getattr(model, col.name)
         except AttributeError:

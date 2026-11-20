@@ -18,36 +18,67 @@ import os
 from contextlib import asynccontextmanager
 from pathlib import Path
 
-from fastapi import FastAPI
-from fastapi.middleware.cors import CORSMiddleware
-from fastapi.staticfiles import StaticFiles
-from slowapi import Limiter, _rate_limit_exceeded_handler
-from slowapi.errors import RateLimitExceeded
-from slowapi.util import get_remote_address
+_LOG_FORMAT = "%(asctime)s %(levelname)-8s [%(name)s] %(message)s"
+logging.basicConfig(
+    level=logging.INFO,
+    format=_LOG_FORMAT,
+    datefmt="%Y-%m-%d %H:%M:%S",
+)
+# Uvicorn installs its own handlers; let app records flow through one formatter.
+for _name in ("uvicorn", "uvicorn.error", "uvicorn.access", "smartcampus"):
+    _lg = logging.getLogger(_name)
+    _lg.handlers = [h for h in _lg.handlers if False]
+    _lg.propagate = True
 
-from app.api.v1 import api_router
-from app.core.config import settings
-from app.core.exceptions import add_exception_handlers
-from app.middleware.csrf import CSRFMiddleware
-from app.middleware.security import RequestIdMiddleware, SecurityHeadersMiddleware
+from fastapi import FastAPI, HTTPException  # noqa: E402
+from fastapi.middleware.cors import CORSMiddleware  # noqa: E402
+from fastapi.responses import FileResponse  # noqa: E402
+from fastapi.staticfiles import StaticFiles  # noqa: E402
+from slowapi import _rate_limit_exceeded_handler  # noqa: E402
+from slowapi.errors import RateLimitExceeded  # noqa: E402
+
+from app.api.v1 import api_router  # noqa: E402
+from app.core.config import settings  # noqa: E402
+from app.core.exceptions import add_exception_handlers  # noqa: E402
+from app.core.limiter import limiter  # noqa: E402
+from app.middleware.csrf import CSRFMiddleware  # noqa: E402
+from app.middleware.security import RequestIdMiddleware, SecurityHeadersMiddleware  # noqa: E402
 
 log = logging.getLogger("smartcampus")
-logging.basicConfig(level=getattr(logging, settings.app_log_level.upper(), logging.INFO))
-
-limiter = Limiter(key_func=get_remote_address, default_limits=[settings.default_rate_limit])
+# Apply the configured log level (env-driven) after basicConfig.
+log.setLevel(getattr(logging, settings.app_log_level.upper(), logging.INFO))
 
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    # Optional demo seeding (only when explicitly enabled).
+    # Always ensure a usable administrator exists — including in production,
+    # where demo seeding is disabled. This is the documented first-admin
+    # bootstrap: it creates the admin from SEED_ADMIN_EMAIL/SEED_ADMIN_PASSWORD
+    # only if missing, never resets an existing admin's password, and never
+    # logs the password. A deployment may not start without a usable admin.
+    from app.seed import bootstrap_admin
+
+    try:
+        admin_ok = await bootstrap_admin()
+    except Exception:  # noqa: BLE001
+        log.exception("Administrator bootstrap failed.")
+        raise
+    if not admin_ok:
+        raise RuntimeError("No usable administrator account after bootstrap; refusing to start.")
+    log.info("Administrator account verified.")
+
+    # Demo data is development/staging only and never touches production.
     if settings.seed_reset_on_start and settings.app_env != "production":
         try:
             from app.seed import seed_demo_data
 
             await seed_demo_data()
-            log.info("Demo data seeded.")
-        except Exception as exc:  # noqa: BLE001
-            log.warning("Seeding skipped: %s", exc)
+            log.info("Demo data seeding complete.")
+        except Exception:  # noqa: BLE001
+            # Full traceback so startup failures are visible. The advisory lock
+            # inside seed_demo_data handles the "another worker is seeding" case
+            # (logged at INFO); only genuine errors reach here.
+            log.exception("Demo data seeding failed.")
     yield
 
 
@@ -90,9 +121,53 @@ def create_app() -> FastAPI:
         return {"status": "ok", "app": settings.app_name, "env": settings.app_env}
 
     # Serve the built frontend (single-origin production deployment).
-    dist = Path(os.environ.get("FRONTEND_DIST_DIR", settings.frontend_dist_dir))
+    # API routes are registered above, so they always take precedence over the
+    # SPA fallback below. The catch-all serves index.html for non-API GETs
+    # (client-side routing) and a real file when one exists (favicon, assets
+    # rooted under /assets). Reserved/API paths — including trailing-slash
+    # variants like /api/v1/unknown/ and /health/ — always return a JSON 404
+    # rather than the SPA shell, so the client's API layer sees a real miss.
+    dist = Path(os.environ.get("FRONTEND_DIST_DIR", settings.frontend_dist_dir)).resolve()
+    # Path prefixes that must NEVER be answered with the SPA shell. Checked
+    # against the raw path BEFORE any trailing-slash handling, so /api/v1/x/
+    # and /health/ are rejected as JSON 404 rather than served index.html.
+    _RESERVED_PREFIXES = ("api", "health", "docs", "openapi", "redoc")
+
     if dist.exists() and (dist / "index.html").exists():
-        app.mount("/", StaticFiles(directory=str(dist), html=True), name="frontend")
+        assets_dir = dist / "assets"
+        if assets_dir.exists():
+            app.mount("/assets", StaticFiles(directory=str(assets_dir)), name="frontend-assets")
+
+        @app.get("/{full_path:path}", include_in_schema=False, tags=["meta"])
+        async def spa_fallback(full_path: str):
+            # 1. Reserved/API prefixes always JSON 404 — checked FIRST, before
+            #    trailing-slash handling, so /api/v1/unknown/ and /health/ never
+            #    return the shell. (Bare /api, /health etc. are registered routes
+            #    handled above; this catches sub-paths and trailing-slash forms.)
+            if any(full_path.startswith(p) for p in _RESERVED_PREFIXES):
+                raise HTTPException(status_code=404, detail="Not Found")
+            # 2. Root or a directory-style path (trailing slash) -> SPA shell.
+            if full_path == "" or full_path.endswith("/"):
+                return FileResponse(str(dist / "index.html"))
+            # 3. Static file: resolve and VERIFY the resolved path stays inside
+            #    the dist directory. This rejects path traversal (including
+            #    encoded attempts — Starlette URL-decodes the path before
+            #    matching, so %2e%2e%2f arrives as ../). Anything that resolves
+            #    outside dist is a 404, never a file from elsewhere on disk.
+            candidate = (dist / full_path).resolve()
+            try:
+                candidate.relative_to(dist)
+            except ValueError:
+                raise HTTPException(status_code=404, detail="Not Found")
+            if candidate.is_file():
+                return FileResponse(str(candidate))
+            # 4. A missing asset is a real 404 — never advertise the SPA shell
+            #    for a file the client expects to exist.
+            if full_path.startswith("assets/"):
+                raise HTTPException(status_code=404, detail="Not Found")
+            # 5. Unknown non-API path -> SPA shell (client router handles it).
+            return FileResponse(str(dist / "index.html"))
+
         log.info("Serving frontend from %s", dist)
     else:
         @app.get("/", tags=["meta"])

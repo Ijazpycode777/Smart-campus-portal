@@ -11,8 +11,11 @@
 # ---------- Stage 1: build frontend ----------
 FROM node:20-alpine AS frontend-build
 WORKDIR /app/frontend
-COPY frontend/package.json frontend/package-lock.json* ./
-RUN npm ci --no-audit --no-fund || npm install --no-audit --no-fund
+# package-lock.json is committed, so use `npm ci` for a reproducible build.
+# Do NOT fall back to `npm install` — a lockfile mismatch should fail loudly,
+# not silently produce a different dependency tree.
+COPY frontend/package.json frontend/package-lock.json ./
+RUN npm ci --no-audit --no-fund
 COPY frontend/ ./
 # Inline the backend origin so the SPA talks to the same origin in production.
 ENV VITE_API_BASE_URL=/api/v1

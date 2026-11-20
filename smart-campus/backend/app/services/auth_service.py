@@ -1,7 +1,7 @@
 """Authentication service: login, logout, session lifecycle, rate limiting."""
 from __future__ import annotations
 
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from typing import Optional
 
 from fastapi import Request, Response
@@ -13,7 +13,7 @@ from app.core.exceptions import AppException, ConflictError, UnauthenticatedErro
 from app.models.session import Session as SessionModel
 from app.models.user import User
 from app.repositories.audit import record_audit
-from app.security.password import is_strong_password, verify_password
+from app.security.password import hash_password, is_strong_password, verify_password
 from app.security.sessions import (
     clear_csrf_cookie,
     clear_session_cookie,
@@ -43,6 +43,36 @@ async def _account_locked(user: User) -> bool:
     return False
 
 
+# Real Argon2id hash of a fixed throwaway value, computed once and reused. When
+# no user matches the supplied email we still run a full Argon2id verify against
+# this hash so the no-user path takes roughly the same time as a bad-password
+# path — limiting the timing oracle that distinct error messages would otherwise
+# amplify. (Verifying a malformed hash returns immediately and gives NO parity,
+# so we use a real, well-formed hash instead.)
+_TIMING_PARITY_HASH: str | None = None
+
+
+def _timing_parity_hash() -> str:
+    global _TIMING_PARITY_HASH
+    if _TIMING_PARITY_HASH is None:
+        _TIMING_PARITY_HASH = hash_password("timing-parity-dummy-do-not-use")
+    return _TIMING_PARITY_HASH
+
+
+def _bad_credentials_message(*, wrong_password: bool) -> str:
+    """Distinct, user-facing login failure messages.
+
+    When ``login_distinct_error_messages`` is enabled the response tells the user
+    which credential was wrong ("Incorrect email." vs "Incorrect password."). This
+    is a deliberate UX choice that trades a user-enumeration oracle for clarity;
+    set the flag False in hardened deployments to collapse both to the generic
+    "Invalid email or password."
+    """
+    if not settings.login_distinct_error_messages:
+        return "Invalid email or password."
+    return "Incorrect password." if wrong_password else "Incorrect email."
+
+
 async def login(
     db: AsyncSession, request: Request, response: Response, email: str, password: str
 ) -> tuple[User, str]:
@@ -50,9 +80,10 @@ async def login(
     result = await db.execute(select(User).where(User.email == email.lower().strip()))
     user = result.scalar_one_or_none()
     if user is None:
-        # Constant-ish failure path: still do a hash verify to limit timing oracle.
-        verify_password(password, "$argon2id$v=19$m=65536,t=3,p=2$AAA$AAA")
-        raise UnauthenticatedError("Invalid email or password.")
+        # Timing-parity: run a full Argon2id verify against a real dummy hash so
+        # this no-user path costs roughly the same as a bad-password verify.
+        verify_password(password, _timing_parity_hash())
+        raise UnauthenticatedError(_bad_credentials_message(wrong_password=False))
     if await _account_locked(user):
         raise UnauthenticatedError("Account temporarily locked. Try again later.")
     if not user.is_active:
@@ -60,11 +91,20 @@ async def login(
 
     if not verify_password(password, user.password_hash):
         user.failed_login_attempts = (user.failed_login_attempts or 0) + 1
-        if user.failed_login_attempts >= 5:
-            user.locked_until = (datetime.now(timezone.utc).isoformat())
+        if user.failed_login_attempts >= settings.account_lockout_threshold:
+            # Real FUTURE lockout: now + configured minutes, timezone-aware, so
+            # _account_locked() (which compares against datetime.now(utc)) actually
+            # holds the account until the lockout elapses.
+            user.locked_until = (
+                datetime.now(timezone.utc) + timedelta(minutes=settings.account_lockout_minutes)
+            ).isoformat()
             user.failed_login_attempts = 0
-        await db.flush()
-        raise UnauthenticatedError("Invalid email or password.")
+        # COMMIT before raising so the counter/lockout survives the auth error.
+        # The error propagates to the exception handler and the get_db dependency
+        # rolls back its session on exit; without this commit the increment would
+        # be lost and the lockout could never trigger.
+        await db.commit()
+        raise UnauthenticatedError(_bad_credentials_message(wrong_password=True))
 
     # Success — reset counters, rotate token (session fixation protection).
     user.failed_login_attempts = 0

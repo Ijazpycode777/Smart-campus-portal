@@ -37,6 +37,10 @@ export interface Student {
   current_program_id?: string | null; current_class_id?: string | null;
   current_section_id?: string | null; current_session_id?: string | null;
   current_roll_number?: number | null;
+  // Resolved placement names (returned by the detail endpoint), used to
+  // prefill the free-text placement fields on the edit form.
+  program_name?: string | null; class_name?: string | null;
+  section_name?: string | null; session_name?: string | null;
 }
 
 export interface BoardRecord {

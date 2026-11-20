@@ -72,6 +72,10 @@ export function StudentDetailPage() {
             <Row label="Gender" value={student.gender || "—"} />
             <Row label="Admitted" value={formatDate(student.admission_date)} />
             <Row label="Roll No." value={student.current_roll_number ? String(student.current_roll_number) : "—"} />
+            <Row label="Program" value={student.program_name || "—"} />
+            <Row label="Class / Part" value={student.class_name || "—"} />
+            <Row label="Section" value={student.section_name || "—"} />
+            <Row label="Session" value={student.session_name || "—"} />
             <div className="flex items-center justify-between">
               <dt className="text-slate-muted">Status</dt>
               <dd><Badge status={student.account_status}>{student.account_status}</Badge></dd>

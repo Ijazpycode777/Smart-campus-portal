@@ -97,13 +97,12 @@ def _envelope(code: str, message: str, details: Optional[List[Dict[str, Any]]], 
 
 def add_exception_handlers(app: FastAPI) -> None:
     @app.exception_handler(AppException)
-    async def _app_exc(_: Request, exc: AppException) -> JSONResponse:
-        request_id = ""
+    async def _app_exc(request: Request, exc: AppException) -> JSONResponse:
         if exc.status_code >= 500:
             log.exception("AppException %s: %s", exc.code, exc.message)
         return JSONResponse(
             status_code=exc.status_code,
-            content=jsonable_encoder(_envelope(exc.code, exc.message, exc.details, request_id)),
+            content=jsonable_encoder(_envelope(exc.code, exc.message, exc.details, _request_id(request))),
         )
 
     @app.exception_handler(StarletteHTTPException)
@@ -146,4 +145,9 @@ def add_exception_handlers(app: FastAPI) -> None:
 
 
 def _request_id(request: Request) -> str:
+    # RequestIdMiddleware stores the id on request.state; fall back to a header
+    # if present. Never empty when the middleware has run.
+    rid = getattr(request.state, "request_id", None)
+    if rid:
+        return rid
     return request.headers.get("x-request-id") or ""

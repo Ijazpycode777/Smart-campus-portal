@@ -1,4 +1,4 @@
-import type { ReactNode } from "react";
+import { forwardRef, type InputHTMLAttributes, type ReactNode, type SelectHTMLAttributes, type TextareaHTMLAttributes } from "react";
 import { cn } from "@/lib/utils";
 
 export function Field({ label, error, required, children, hint }: { label: string; error?: string; required?: boolean; children: ReactNode; hint?: string }) {
@@ -14,14 +14,25 @@ export function Field({ label, error, required, children, hint }: { label: strin
   );
 }
 
-export function Select({ className, children, ...props }: React.SelectHTMLAttributes<HTMLSelectElement>) {
-  return <select className={cn("input", className)} {...props}>{children}</select>;
-}
+// Custom inputs used with react-hook-form's `register` MUST forward `ref`.
+// `register` returns { ref, onChange, onBlur, name }; if the wrapper is a plain
+// function component React silently drops `ref`, so RHF never sees the DOM node
+// and cannot read autofilled values at submit — the form then reports every
+// field as empty ("required") even when the box shows text. forwardRef fixes this.
+export const TextInput = forwardRef<HTMLInputElement, InputHTMLAttributes<HTMLInputElement>>(
+  function TextInput({ className, ...props }, ref) {
+    return <input ref={ref} className={cn("input", className)} {...props} />;
+  }
+);
 
-export function TextInput({ className, ...props }: React.InputHTMLAttributes<HTMLInputElement>) {
-  return <input className={cn("input", className)} {...props} />;
-}
+export const Select = forwardRef<HTMLSelectElement, SelectHTMLAttributes<HTMLSelectElement>>(
+  function Select({ className, children, ...props }, ref) {
+    return <select ref={ref} className={cn("input", className)} {...props}>{children}</select>;
+  }
+);
 
-export function Textarea({ className, ...props }: React.TextareaHTMLAttributes<HTMLTextAreaElement>) {
-  return <textarea className={cn("input", className)} {...props} />;
-}
+export const Textarea = forwardRef<HTMLTextAreaElement, TextareaHTMLAttributes<HTMLTextAreaElement>>(
+  function Textarea({ className, ...props }, ref) {
+    return <textarea ref={ref} className={cn("input", className)} {...props} />;
+  }
+);

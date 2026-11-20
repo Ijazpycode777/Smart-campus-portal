@@ -10,19 +10,19 @@ from app.database.session import get_db
 from app.models.examinations import GradingPolicy
 from app.models.user import User
 from app.schemas.examinations import GradingPolicyIn, GradingPolicyOut
-from app.security.dependencies import require_admin
+from app.security.dependencies import get_current_user, require_admin
 from app.services import grading_service
 
 router = APIRouter(prefix="/grading", tags=["grading"])
 
 
-@router.get("", response_model=list[GradingPolicyOut])
+@router.get("", response_model=list[GradingPolicyOut], dependencies=[Depends(get_current_user)])
 async def list_policies(db: AsyncSession = Depends(get_db)):
     rows = await db.execute(select(GradingPolicy).order_by(GradingPolicy.name, GradingPolicy.version))
     return [GradingPolicyOut.model_validate(r) for r in rows.scalars().all()]
 
 
-@router.get("/active", response_model=GradingPolicyOut | None)
+@router.get("/active", response_model=GradingPolicyOut | None, dependencies=[Depends(get_current_user)])
 async def active(db: AsyncSession = Depends(get_db)):
     p = await grading_service.active_policy(db)
     return GradingPolicyOut.model_validate(p) if p else None

@@ -4,6 +4,7 @@ from __future__ import annotations
 from fastapi import APIRouter, Depends, Query
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.orm import selectinload
 
 from app.core.exceptions import NotFoundError
 from app.database.session import get_db
@@ -27,7 +28,7 @@ async def create_period(payload: TimetablePeriodIn, admin: User = Depends(requir
     return await timetable_service.create_period(db, admin, **payload.model_dump())
 
 
-@router.get("/periods", response_model=list[TimetablePeriodOut])
+@router.get("/periods", response_model=list[TimetablePeriodOut], dependencies=[Depends(get_current_user)])
 async def list_periods(academic_session_id: str | None = Query(None), db: AsyncSession = Depends(get_db)):
     stmt = select(TimetablePeriod).order_by(TimetablePeriod.day_of_week, TimetablePeriod.start_time)
     if academic_session_id:
@@ -41,7 +42,7 @@ async def create_entry(payload: TimetableEntryIn, user: User = Depends(require_s
     return TimetableEntryOut.model_validate(entry)
 
 
-@router.get("/entries", response_model=list[TimetableEntryDetailOut])
+@router.get("/entries", response_model=list[TimetableEntryDetailOut], dependencies=[Depends(get_current_user)])
 async def list_entries(
     teacher_id: str | None = Query(None),
     class_id: str | None = Query(None),
@@ -49,8 +50,13 @@ async def list_entries(
     academic_session_id: str | None = Query(None),
     db: AsyncSession = Depends(get_db),
 ):
-    stmt = select(TimetableEntry).where(TimetableEntry.is_cancelled.is_(False)).order_by(
-        TimetableEntry.day_of_week, TimetableEntry.start_time
+    stmt = (
+        select(TimetableEntry)
+        .options(selectinload(TimetableEntry.teacher),
+                 selectinload(TimetableEntry.subject),
+                 selectinload(TimetableEntry.classroom))
+        .where(TimetableEntry.is_cancelled.is_(False))
+        .order_by(TimetableEntry.day_of_week, TimetableEntry.start_time)
     )
     if teacher_id:
         stmt = stmt.where(TimetableEntry.teacher_id == teacher_id)
@@ -79,7 +85,7 @@ async def cancel_entry(entry_id: str, admin: User = Depends(require_admin()), db
     return TimetableEntryOut.model_validate(await timetable_service.cancel_entry(db, admin, entry))
 
 
-@router.get("/me", tags=["timetable-self"])
+@router.get("/me", tags=["timetable-self"], dependencies=[Depends(get_current_user)])
 async def my_timetable(user: User = Depends(get_current_user), db: AsyncSession = Depends(get_db)):
     if user.role == "teacher":
         rows = await timetable_service.weekly_for_teacher(db, str(user.teacher_profile.id))

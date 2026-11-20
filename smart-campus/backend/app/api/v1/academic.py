@@ -31,14 +31,14 @@ from app.schemas.academic import (
     SubjectIn,
     SubjectOut,
 )
-from app.security.dependencies import require_admin
+from app.security.dependencies import get_current_user, require_admin
 from app.services import academic_service
 
 router = APIRouter(tags=["academic"])
 
 
 # ---------------- Sessions ----------------
-@router.get("/sessions", response_model=list[AcademicSessionOut])
+@router.get("/sessions", response_model=list[AcademicSessionOut], dependencies=[Depends(get_current_user)])
 async def list_sessions(db: AsyncSession = Depends(get_db)):
     rows = await db.execute(select(AcademicSession).order_by(AcademicSession.start_date.desc()))
     return list(rows.scalars().all())
@@ -51,7 +51,7 @@ async def create_session(payload: AcademicSessionIn, admin: User = Depends(requi
 
 
 # ---------------- Programs ----------------
-@router.get("/programs", response_model=list[ProgramOut])
+@router.get("/programs", response_model=list[ProgramOut], dependencies=[Depends(get_current_user)])
 async def list_programs(db: AsyncSession = Depends(get_db)):
     rows = await db.execute(select(Program).order_by(Program.name))
     return list(rows.scalars().all())
@@ -63,7 +63,7 @@ async def create_program(payload: ProgramIn, admin: User = Depends(require_admin
 
 
 # ---------------- Classes ----------------
-@router.get("/classes", response_model=list[ClassLevelOut])
+@router.get("/classes", response_model=list[ClassLevelOut], dependencies=[Depends(get_current_user)])
 async def list_classes(program_id: str | None = Query(None), db: AsyncSession = Depends(get_db)):
     stmt = select(ClassLevel).order_by(ClassLevel.year)
     if program_id:
@@ -77,7 +77,7 @@ async def create_class(payload: ClassLevelIn, admin: User = Depends(require_admi
 
 
 # ---------------- Sections ----------------
-@router.get("/sections", response_model=list[SectionOut])
+@router.get("/sections", response_model=list[SectionOut], dependencies=[Depends(get_current_user)])
 async def list_sections(class_level_id: str | None = Query(None), db: AsyncSession = Depends(get_db)):
     stmt = select(Section).order_by(Section.name)
     if class_level_id:
@@ -92,7 +92,7 @@ async def create_section(payload: SectionIn, admin: User = Depends(require_admin
 
 
 # ---------------- Subjects ----------------
-@router.get("/subjects", response_model=list[SubjectOut])
+@router.get("/subjects", response_model=list[SubjectOut], dependencies=[Depends(get_current_user)])
 async def list_subjects(program_id: str | None = Query(None), db: AsyncSession = Depends(get_db)):
     stmt = select(Subject).order_by(Subject.name)
     if program_id:
@@ -108,7 +108,7 @@ async def create_subject(payload: SubjectIn, admin: User = Depends(require_admin
 
 
 # ---------------- Classrooms ----------------
-@router.get("/classrooms", response_model=list[ClassroomOut])
+@router.get("/classrooms", response_model=list[ClassroomOut], dependencies=[Depends(get_current_user)])
 async def list_classrooms(db: AsyncSession = Depends(get_db)):
     rows = await db.execute(select(Classroom).where(Classroom.is_active.is_(True)).order_by(Classroom.room_number))
     return list(rows.scalars().all())
@@ -121,7 +121,7 @@ async def create_classroom(payload: ClassroomIn, admin: User = Depends(require_a
 
 
 # ---------------- Teacher assignments ----------------
-@router.get("/assignments", tags=["assignments"])
+@router.get("/assignments", tags=["assignments"], dependencies=[Depends(get_current_user)])
 async def list_assignments(teacher_id: str | None = Query(None), db: AsyncSession = Depends(get_db)):
     stmt = select(TeacherAssignment).where(TeacherAssignment.is_active.is_(True))
     if teacher_id:

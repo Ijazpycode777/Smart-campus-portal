@@ -224,7 +224,11 @@ docker compose up --build
 # db:   postgresql://smartcampus:smartcampus@localhost:5432/smartcampus
 ```
 
-The container runs `alembic upgrade head` on start and seeds demo data when `SEED_RESET_ON_START=true`.
+The container runs `alembic upgrade head` on start, then calls `bootstrap_admin()`
+to ensure a usable administrator exists (created from `SEED_ADMIN_EMAIL` /
+`SEED_ADMIN_PASSWORD` if missing; existing admin passwords are never reset).
+Demo data is seeded **only** when `APP_ENV != production` **and**
+`SEED_RESET_ON_START=true`; production never seeds synthetic students/teachers.
 
 ## Deployment (Render)
 
@@ -236,7 +240,7 @@ Deploy through one GitHub repository using the included `render.yaml` blueprint:
 
 Render injects `DATABASE_URL` from the database; the app normalizes `postgres://` to the asyncpg driver automatically. Migrations run on every deploy via the container `CMD`. Health checks hit `/health`.
 
-Push the repository to GitHub, create a new Blueprint deployment on Render pointing at the repo, and Render will provision the database, web service and disk from `render.yaml`. After the first deploy, set `SEED_ADMIN_PASSWORD` (or let Render generate it) and trigger a redeploy so the bootstrap admin is created.
+Push the repository to GitHub, create a new Blueprint deployment on Render pointing at the repo (apply from the repository root — the blueprint's `dockerContext: .` is the repo root, not a nested subdirectory). Render provisions the database, web service and disk from `render.yaml`, auto-generates `SEED_ADMIN_PASSWORD`, and on first deploy `bootstrap_admin()` creates the administrator from `SEED_ADMIN_EMAIL` / `SEED_ADMIN_PASSWORD`. To rotate the bootstrap email later, change `SEED_ADMIN_EMAIL` and redeploy — note that bootstrap never resets an existing administrator's password.
 
 Full instructions and the architecture diagram: [docs/DEPLOYMENT.md](docs/DEPLOYMENT.md).
 

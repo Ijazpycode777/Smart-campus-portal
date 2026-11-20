@@ -8,20 +8,36 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.exceptions import ConflictError, ForbiddenError, NotFoundError, ValidationError
-from app.models.examinations import Examination, GradingPolicy, StudentMark
-from app.models.people import StudentEnrolment
+from app.models.examinations import Examination, GradingBoundary, GradingPolicy, StudentMark
 from app.repositories.audit import record_audit
 from app.services.academic_service import teacher_authorized_for
 from app.services.exam_marks import MarkInput, MarksError, compute_mark_result, validate_mark
 from app.services.grading import Boundary
 
 
-def _boundaries_from_policy(policy: GradingPolicy | None) -> list[Boundary]:
-    if policy is None:
+async def _load_boundaries(db: AsyncSession, policy_id: str | None) -> list[Boundary]:
+    """Explicitly load a grading policy's boundaries as plain Boundary values.
+
+    We deliberately avoid accessing the ``GradingPolicy.boundaries`` relationship
+    here. Under async SQLAlchemy that relationship is only populated when it is
+    eagerly loaded as part of a query that returned the parent; if the policy
+    instance is already in the session's identity map (e.g. it was just created
+    and flushed earlier in the same transaction, as happens during seeding),
+    ``db.get`` returns the cached instance without re-running the selectin
+    loader, and reading ``.boundaries`` would then trigger a synchronous lazy
+    load — raising ``MissingGreenlet`` on asyncpg. An explicit query sidesteps
+    the relationship entirely and is safe on every backend.
+    """
+    if not policy_id:
         return []
+    rows = (await db.execute(
+        select(GradingBoundary)
+        .where(GradingBoundary.policy_id == policy_id)
+        .order_by(GradingBoundary.min_percentage)
+    )).scalars().all()
     return [
-        Boundary(b.grade_name, float(b.min_percentage), float(b.max_percentage), bool(b.is_pass), b.description)
-        for b in policy.boundaries
+        Boundary(r.grade_name, float(r.min_percentage), float(r.max_percentage), bool(r.is_pass), r.description)
+        for r in rows
     ]
 
 
@@ -61,8 +77,6 @@ async def enter_marks(db: AsyncSession, actor, teacher_id: str, data: dict[str, 
         raise NotFoundError("Examination not found.")
     if exam.status == "finalized":
         raise ForbiddenError("Examination is finalized; marks cannot be changed.")
-    if str(exam.class_id) != str(exam.class_id):
-        pass
     if actor.role == "teacher":
         if str(exam.created_by) != str(actor.id):
             auth = await teacher_authorized_for(
@@ -72,8 +86,7 @@ async def enter_marks(db: AsyncSession, actor, teacher_id: str, data: dict[str, 
             if not auth:
                 raise ForbiddenError("You are not authorized to enter marks for this exam.")
 
-    policy = await db.get(GradingPolicy, exam.grading_policy_id) if exam.grading_policy_id else None
-    boundaries = _boundaries_from_policy(policy)
+    boundaries = await _load_boundaries(db, exam.grading_policy_id)
 
     created: list[StudentMark] = []
     now_iso = datetime.now(timezone.utc).isoformat()

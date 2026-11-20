@@ -34,7 +34,7 @@ flowchart LR
    - a Docker web service (`smartcampus`),
    - a 5 GB disk mounted at `/var/data`.
 3. Render auto-generates `SESSION_SECRET_KEY` and `SEED_ADMIN_PASSWORD` (marked `sync: false, generateValue: true`). Note the generated admin password from the Render environment tab.
-4. The first deploy runs migrations and (with `SEED_RESET_ON_START=true`) seeds the demo data, including the bootstrap admin.
+4. The first deploy runs migrations (`alembic upgrade head`, deriving the sync psycopg2 URL from `DATABASE_URL`) and then calls `bootstrap_admin()`, which creates the administrator from `SEED_ADMIN_EMAIL` / `SEED_ADMIN_PASSWORD` **only if it does not already exist** (it never resets an existing admin's password). Production never seeds synthetic demo students/teachers — `SEED_RESET_ON_START` is `false` in the blueprint, and demo seeding is disabled whenever `APP_ENV=production` regardless of that flag.
 5. Visit the public URL (`https://smartcampus.onrender.com` by default) and sign in with the admin credentials. Update `CORS_ALLOWED_ORIGINS` to your final public URL.
 
 ## Production configuration checklist

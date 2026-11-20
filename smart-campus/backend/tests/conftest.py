@@ -15,6 +15,12 @@ os.environ.setdefault("DATABASE_URL", "sqlite+aiosqlite://")
 os.environ.setdefault("DATABASE_URL_SYNC", "sqlite://")
 os.environ.setdefault("CORS_ALLOWED_ORIGINS", "http://testserver")
 os.environ.setdefault("SEED_RESET_ON_START", "false")
+# Raise the login rate limit for the test suite so lockout tests (which make
+# several failed attempts in sequence) are not throttled by SlowAPI. The rate
+# limiter itself is exercised in a dedicated test that lowers the limit.
+os.environ.setdefault("LOGIN_RATE_LIMIT", "1000/minute")
+os.environ.setdefault("ACCOUNT_LOCKOUT_THRESHOLD", "5")
+os.environ.setdefault("ACCOUNT_LOCKOUT_MINUTES", "15")
 # Fast Argon2 params for the test suite (production keeps strong defaults).
 os.environ.setdefault("ARGON2_TIME_COST", "1")
 os.environ.setdefault("ARGON2_MEMORY_COST", "1024")
@@ -132,6 +138,12 @@ async def academic_setup(admin_client):
         "section_id": sec.json()["id"],
         "subject_id": subj.json()["id"],
         "classroom_id": room.json()["id"],
+        # Free-text placement names (match what was created above so the
+        # student create endpoint's find-or-create resolves to the same rows).
+        "program_name": "ICS",
+        "class_name": "Part 1",
+        "section_name": "A",
+        "session_name": "2025-2026",
     }
 
 

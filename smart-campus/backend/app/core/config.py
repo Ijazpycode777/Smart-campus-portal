@@ -54,6 +54,16 @@ class Settings(BaseSettings):
     login_rate_limit: str = "5/minute"
     default_rate_limit: str = "120/minute"
 
+    # Account lockout after repeated failed logins.
+    account_lockout_threshold: int = 5
+    account_lockout_minutes: int = 15
+
+    # Distinct login failure messages ("Incorrect email." vs "Incorrect password.").
+    # True by default so users can tell which credential is wrong. NOTE: distinct
+    # messages are a user-enumeration oracle (they reveal which emails exist); set
+    # to False in hardened production to collapse both to "Invalid email or password."
+    login_distinct_error_messages: bool = True
+
     # Teacher self-attendance
     teacher_late_threshold_minutes: int = 15
     teacher_work_start: str = "08:30"  # HH:MM
@@ -92,6 +102,29 @@ class Settings(BaseSettings):
         if url.startswith("postgresql://") and "+asyncpg" not in url:
             return url.replace("postgresql://", "postgresql+asyncpg://", 1)
         return url
+
+
+def to_sync_url(url: str) -> str:
+    """Convert any Postgres connection URL to the synchronous psycopg2 form
+    used by Alembic migrations.
+
+    Handles every variant Render/the app may supply:
+      * ``postgres://``            (Render's raw connection string)
+      * ``postgresql+asyncpg://``  (the async app driver)
+      * ``postgresql://``          (bare)
+      * ``postgresql+psycopg2://`` (already sync — returned as-is)
+    Non-Postgres URLs (e.g. ``sqlite://`` for local tests) are returned unchanged.
+    """
+    if not url:
+        return url
+    if url.startswith("postgres://"):
+        url = "postgresql://" + url[len("postgres://"):]
+    if url.startswith("postgresql://"):
+        return "postgresql+psycopg2://" + url[len("postgresql://"):]
+    if url.startswith("postgresql+"):
+        # postgresql+asyncpg://  ->  postgresql+psycopg2://
+        return "postgresql+psycopg2://" + url.split("://", 1)[1]
+    return url
 
 
 @lru_cache

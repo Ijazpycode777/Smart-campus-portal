@@ -5,7 +5,9 @@ from fastapi import APIRouter, Depends, Request, Response
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.core.config import settings
 from app.core.exceptions import NotFoundError
+from app.core.limiter import rate_limit
 from app.database.session import get_db
 from app.models.user import User
 from app.schemas.auth import (
@@ -30,6 +32,7 @@ async def get_csrf(response: Response):
 
 
 @router.post("/login", response_model=ProfileOut)
+@rate_limit(lambda: settings.login_rate_limit)
 async def login(payload: LoginIn, request: Request, response: Response, db: AsyncSession = Depends(get_db)):
     user, csrf = await auth_service.login(db, request, response, payload.email, payload.password)
     return _profile(user)

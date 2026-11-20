@@ -6,7 +6,7 @@ only; every protected backend endpoint must use one of these dependencies.
 """
 from __future__ import annotations
 
-from typing import Optional, Sequence
+from typing import Sequence
 
 from fastapi import Depends, Request
 from sqlalchemy import select
@@ -83,37 +83,6 @@ def require_student():
 def require_staff():
     """Admin or teacher."""
     return require_roles("admin", "teacher")
-
-
-def get_optional_user(request: Request, db: AsyncSession = Depends(get_db)) -> Optional[User]:
-    """Best-effort user resolution; never raises."""
-    token = request.cookies.get(settings.session_cookie_name)
-    if not token:
-        return None
-    import asyncio
-
-    async def _resolve():
-        result = await db.execute(
-            select(SessionModel).where(
-                SessionModel.token == token,
-                SessionModel.revoked.is_(False),
-            )
-        )
-        session = result.scalar_one_or_none()
-        if session is None or session.is_expired():
-            return None
-        user_result = await db.execute(select(User).where(User.id == session.user_id))
-        user = user_result.scalar_one_or_none()
-        if user is None or not user.is_active:
-            return None
-        request.state.user = user
-        return user
-
-    try:
-        return asyncio.get_event_loop().run_until_complete(_resolve())  # type: ignore
-    except RuntimeError:
-        # Event loop already running — fall back to None
-        return None
 
 
 def enforce_owner_or_admin(user: User, owner_id: str) -> None:
