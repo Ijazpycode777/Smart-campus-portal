@@ -1,0 +1,146 @@
+<%- include('../partials/layout-top') %>
+<%
+  const totalLeaves = leaves.length;
+  const pending = leaves.filter(l => l.status === 'pending').length;
+  const approved = leaves.filter(l => l.status === 'approved').length;
+  const rejected = leaves.filter(l => l.status === 'rejected').length;
+  const statusBadge = (s) => ({ pending: 'badge-warning', approved: 'badge-success', rejected: 'badge-danger' }[s] || 'badge-neutral');
+  const roleBadge = (r) => ({ admin: 'badge-purple', teacher: 'badge-info', student: 'badge-success' }[r] || 'badge-neutral');
+  const roleColor = (r) => ({ admin: '#6366f1', teacher: '#10b981', student: '#ec4899' }[r] || '#6b7280');
+  const leaveTypeLabel = (t) => t ? t.split('_').map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(' ') : '—';
+%>
+
+<div class="hero-banner fade-in">
+  <div style="position:relative">
+    <div style="font-size:11px;opacity:.85;text-transform:uppercase;letter-spacing:.1em;font-weight:600">HR & Attendance</div>
+    <h1>Leave Applications</h1>
+    <p>Review and process leave requests submitted by faculty and students of <%= collegeName %> — approve, reject, or follow up.</p>
+    <div class="hero-stat">
+      <div class="num"><%= pending %></div>
+      <div class="lbl">Pending</div>
+    </div>
+  </div>
+</div>
+
+<div class="stats-grid">
+  <div class="stat-card slide-up">
+    <div class="stat-icon brand">📋</div>
+    <div style="flex:1">
+      <div class="stat-label">Total Applications</div>
+      <div class="stat-value"><%= totalLeaves %></div>
+      <div class="stat-delta up">▲ All-time requests</div>
+    </div>
+  </div>
+  <div class="stat-card slide-up" style="animation-delay:.05s">
+    <div class="stat-icon amber">⏳</div>
+    <div style="flex:1">
+      <div class="stat-label">Pending Review</div>
+      <div class="stat-value"><%= pending %></div>
+      <div class="stat-delta up">▲ Awaiting decision</div>
+    </div>
+  </div>
+  <div class="stat-card slide-up" style="animation-delay:.1s">
+    <div class="stat-icon green">✅</div>
+    <div style="flex:1">
+      <div class="stat-label">Approved</div>
+      <div class="stat-value"><%= approved %></div>
+      <div class="stat-delta up">▲ Granted leaves</div>
+    </div>
+  </div>
+  <div class="stat-card slide-up" style="animation-delay:.15s">
+    <div class="stat-icon red" style="background:linear-gradient(135deg,#ef4444,#f87171);box-shadow:0 6px 16px rgba(239,68,68,.35)">❌</div>
+    <div style="flex:1">
+      <div class="stat-label">Rejected</div>
+      <div class="stat-value"><%= rejected %></div>
+      <div class="stat-delta down">▼ Declined requests</div>
+    </div>
+  </div>
+</div>
+
+<div class="card mb-4">
+  <div class="card-header"><div class="card-title">Filter by Status</div></div>
+  <div class="card-body" style="padding:14px 18px">
+    <div style="display:flex;gap:6px;flex-wrap:wrap">
+      <a href="/admin/leaves" class="badge badge-<%= (!status || status === 'all') ? 'success' : 'neutral' %>" style="padding:8px 14px;font-size:12px;cursor:pointer">All (<%= totalLeaves %>)</a>
+      <a href="/admin/leaves?status=pending" class="badge badge-<%= status === 'pending' ? 'success' : 'neutral' %>" style="padding:8px 14px;font-size:12px;cursor:pointer">Pending (<%= pending %>)</a>
+      <a href="/admin/leaves?status=approved" class="badge badge-<%= status === 'approved' ? 'success' : 'neutral' %>" style="padding:8px 14px;font-size:12px;cursor:pointer">Approved (<%= approved %>)</a>
+      <a href="/admin/leaves?status=rejected" class="badge badge-<%= status === 'rejected' ? 'success' : 'neutral' %>" style="padding:8px 14px;font-size:12px;cursor:pointer">Rejected (<%= rejected %>)</a>
+    </div>
+  </div>
+</div>
+
+<div class="card">
+  <div class="card-header">
+    <div>
+      <div class="card-title">Leave Applications</div>
+      <div class="text-xs text-muted"><%= leaves.length %> applications · filtered by <strong><%= status || 'all' %></strong></div>
+    </div>
+  </div>
+  <div class="table-wrap">
+    <table class="data-table">
+      <thead><tr><th>Applicant</th><th>Role</th><th>Type</th><th>Date Range</th><th>Reason</th><th>Status</th><th>Applied</th><th>Actions</th></tr></thead>
+      <tbody>
+        <% if (!leaves.length) { %>
+          <tr><td colspan="8"><div class="empty"><div class="empty-icon">📋</div><div class="empty-title">No leave applications</div><div class="empty-sub">Applications will appear here when submitted.</div></div></td></tr>
+        <% } %>
+        <% leaves.forEach(l => { %>
+          <tr>
+            <td>
+              <div style="display:flex;align-items:center;gap:10px">
+                <div class="avatar avatar-sm" style="background:<%= l.avatar_color %>"><%= helpers.initials(l.full_name) %></div>
+                <div style="font-weight:600;color:var(--gray-900)"><%= l.full_name %></div>
+              </div>
+            </td>
+            <td><span class="badge <%= roleBadge(l.role) %>"><%= l.role %></span></td>
+            <td><span class="badge badge-neutral"><%= leaveTypeLabel(l.leave_type) %></span></td>
+            <td>
+              <div><%= helpers.formatDate(l.start_date) %></div>
+              <div class="text-xs text-muted">→ <%= helpers.formatDate(l.end_date) %></div>
+            </td>
+            <td class="text-muted" style="max-width:240px"><div class="truncate"><%= l.reason || '—' %></div></td>
+            <td><span class="badge <%= statusBadge(l.status) %> badge-dot"><%= (l.status || 'pending').toUpperCase() %></span>
+              <% if (l.reviewed_by_name) { %><div class="text-xs text-muted">by <%= l.reviewed_by_name %></div><% } %>
+            </td>
+            <td class="text-muted"><%= helpers.timeAgo(l.created_at) %></td>
+            <td>
+              <% if (l.status === 'pending') { %>
+                <div style="display:flex;gap:4px">
+                  <button class="btn btn-success btn-sm" onclick="approveLeave(<%= l.id %>)">✓ Approve</button>
+                  <button class="btn btn-danger btn-sm" onclick="rejectLeave(<%= l.id %>)">✕ Reject</button>
+                </div>
+              <% } else { %>
+                <span class="text-xs text-muted">Reviewed <%= l.reviewed_at ? helpers.timeAgo(l.reviewed_at) : '' %></span>
+              <% } %>
+            </td>
+          </tr>
+        <% }) %>
+      </tbody>
+    </table>
+  </div>
+</div>
+
+<script>
+  async function approveLeave(id) {
+    try {
+      const res = await ERP.api('/api/admin/leaves/' + id + '/approve', { method: 'POST' });
+      ERP.toast('Approved', res.message || 'Leave approved.', 'success');
+      setTimeout(() => location.reload(), 700);
+    } catch (err) {
+      if (err.status === 404) ERP.toast('Coming Soon', 'This endpoint is not available yet.', 'warning');
+      else ERP.toast('Error', err.message, 'error');
+    }
+  }
+  function rejectLeave(id) {
+    ERP.confirmDialog('Reject Leave', 'Reject this leave application?', async () => {
+      try {
+        const res = await ERP.api('/api/admin/leaves/' + id + '/reject', { method: 'POST' });
+        ERP.toast('Rejected', res.message || 'Leave rejected.', 'success');
+        setTimeout(() => location.reload(), 700);
+      } catch (err) {
+        if (err.status === 404) ERP.toast('Coming Soon', 'This endpoint is not available yet.', 'warning');
+        else ERP.toast('Error', err.message, 'error');
+      }
+    }, { okText: 'Reject', danger: true });
+  }
+</script>
+<%- include('../partials/layout-bottom') %>

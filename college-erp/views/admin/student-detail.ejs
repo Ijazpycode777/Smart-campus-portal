@@ -1,0 +1,235 @@
+<%- include('../partials/layout-top') %>
+<%
+  const attTotal = (attendance.total || 0);
+  const attPct = attTotal ? Math.round((attendance.present / attTotal) * 100) : 0;
+  const feeTotal = invoices.reduce((a, i) => a + (parseFloat(i.total_amount) || 0), 0);
+  const feePaid = invoices.reduce((a, i) => a + (parseFloat(i.paid_amount) || 0), 0);
+  const feeDue = feeTotal - feePaid;
+  const feePct = feeTotal ? Math.round((feePaid / feeTotal) * 100) : 0;
+  const gradeColor = (g) => {
+    if (!g) return 'badge-neutral';
+    const grade = g.toUpperCase();
+    if (grade.startsWith('A')) return 'badge-success';
+    if (grade === 'B' || grade === 'B+') return 'badge-info';
+    if (grade === 'C' || grade === 'C+') return 'badge-warning';
+    if (grade === 'D') return 'badge-warning';
+    if (grade === 'F') return 'badge-danger';
+    return 'badge-neutral';
+  };
+%>
+
+<div class="hero-banner fade-in">
+  <div style="position:relative;display:flex;align-items:center;gap:20px;flex-wrap:wrap">
+    <div class="avatar avatar-xl" style="background:<%= student.avatar_color %>;width:88px;height:88px;font-size:30px;box-shadow:0 8px 24px rgba(0,0,0,.2);border:3px solid rgba(255,255,255,.4)"><%= helpers.initials(student.full_name) %></div>
+    <div style="flex:1;min-width:220px">
+      <div style="font-size:11px;opacity:.85;text-transform:uppercase;letter-spacing:.1em;font-weight:600">Student Profile</div>
+      <h1 style="margin-top:4px"><%= student.full_name %></h1>
+      <p style="margin-top:4px"><strong style="font-family:var(--font-mono)"><%= student.roll_number %></strong> · <%= student.course_name %> · <%= student.dept_code %></p>
+      <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:8px">
+        <span class="badge badge-success badge-dot"><%= student.status || (student.is_active ? 'Active' : 'Inactive') %></span>
+        <span class="badge badge-purple">Sem <%= student.current_semester %></span>
+        <% if (student.current_section) { %><span class="badge badge-info">Section <%= student.current_section %></span><% } %>
+        <span class="badge badge-neutral">Batch <%= student.batch_year %></span>
+      </div>
+    </div>
+    <div style="display:flex;gap:14px;flex-wrap:wrap">
+      <div style="text-align:center"><div style="font-size:32px;font-weight:800;line-height:1"><%= attPct %>%</div><div style="font-size:11px;opacity:.85;text-transform:uppercase;letter-spacing:.06em">Attendance</div></div>
+      <div style="text-align:center"><div style="font-size:32px;font-weight:800;line-height:1"><%= results.length %></div><div style="font-size:11px;opacity:.85;text-transform:uppercase;letter-spacing:.06em">Results</div></div>
+    </div>
+  </div>
+</div>
+
+<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:16px;margin-bottom:24px">
+  <div class="card">
+    <div class="card-header"><div class="card-title">📞 Contact</div><span class="badge badge-neutral">Profile</span></div>
+    <div class="card-body">
+      <div style="display:grid;gap:10px;font-size:13px">
+        <div><div class="text-xs text-muted">Email</div><div style="font-weight:600;word-break:break-all"><%= student.email %></div></div>
+        <div><div class="text-xs text-muted">Phone</div><div style="font-weight:600"><%= student.phone || '—' %></div></div>
+        <div><div class="text-xs text-muted">Username</div><div style="font-weight:600;font-family:var(--font-mono)">@<%= student.username %></div></div>
+        <div><div class="text-xs text-muted">Address</div><div style="font-weight:600"><%= student.address || '—' %></div></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="card-header"><div class="card-title">🎓 Academic</div><span class="badge badge-info">Enrollment</span></div>
+    <div class="card-body">
+      <div style="display:grid;gap:10px;font-size:13px">
+        <div><div class="text-xs text-muted">Course</div><div style="font-weight:600"><%= student.course_name %> <span class="badge badge-neutral" style="margin-left:4px"><%= student.course_code %></span></div></div>
+        <div><div class="text-xs text-muted">Department</div><div style="font-weight:600"><%= student.dept_name %> (<%= student.dept_code %>)</div></div>
+        <div><div class="text-xs text-muted">Semester / Section</div><div style="font-weight:600">Sem <%= student.current_semester %> <% if (student.current_section) { %>· Sec <%= student.current_section %><% } %></div></div>
+        <div><div class="text-xs text-muted">Admission Date</div><div style="font-weight:600"><%= helpers.formatDate(student.admission_date) %></div></div>
+        <div><div class="text-xs text-muted">Batch Year</div><div style="font-weight:600"><%= student.batch_year %></div></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="card-header"><div class="card-title">👨‍👩‍👧 Guardian</div><span class="badge badge-purple">Family</span></div>
+    <div class="card-body">
+      <div style="display:grid;gap:10px;font-size:13px">
+        <div><div class="text-xs text-muted">Guardian Name</div><div style="font-weight:600"><%= student.guardian_name || '—' %></div></div>
+        <div><div class="text-xs text-muted">Guardian Phone</div><div style="font-weight:600"><%= student.guardian_phone || '—' %></div></div>
+        <div><div class="text-xs text-muted">Blood Group</div><div><% if (student.blood_group) { %><span class="badge badge-danger"><%= student.blood_group %></span><% } else { %>—<% } %></div></div>
+        <div><div class="text-xs text-muted">Gender</div><div style="font-weight:600"><%= student.gender || '—' %></div></div>
+        <div><div class="text-xs text-muted">Date of Birth</div><div style="font-weight:600"><%= helpers.formatDate(student.dob) %></div></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="card-header"><div class="card-title">📅 Personal</div><span class="badge badge-success">Identity</span></div>
+    <div class="card-body">
+      <div style="display:grid;gap:10px;font-size:13px">
+        <div><div class="text-xs text-muted">Joined</div><div style="font-weight:600"><%= helpers.formatDate(student.created_at) %></div></div>
+        <div><div class="text-xs text-muted">Status</div><div><% if (student.is_active) { %><span class="badge badge-success badge-dot">Active</span><% } else { %><span class="badge badge-neutral badge-dot">Inactive</span><% } %></div></div>
+        <div><div class="text-xs text-muted">Student ID</div><div style="font-weight:600;font-family:var(--font-mono)">#<%= student.id %></div></div>
+        <div><div class="text-xs text-muted">User ID</div><div style="font-weight:600;font-family:var(--font-mono)">@<%= student.user_id %></div></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="charts-grid">
+  <div class="card">
+    <div class="card-header">
+      <div>
+        <div class="card-title">📊 Attendance Breakdown</div>
+        <div class="text-xs text-muted">Present · Absent · Late across the term</div>
+      </div>
+      <span class="badge badge-success"><%= attPct %>% present</span>
+    </div>
+    <div class="card-body" style="display:flex;align-items:center;gap:18px;flex-wrap:wrap">
+      <div style="position:relative;width:120px;height:120px;flex-shrink:0">
+        <canvas data-chart="donut" data-data='<%= JSON.stringify([
+          { label: 'Present', value: attendance.present || 0, color: '#10b981' },
+          { label: 'Absent', value: attendance.absent || 0, color: '#ef4444' },
+          { label: 'Late', value: attendance.late || 0, color: '#f59e0b' }
+        ]) %>' data-opts='<%= JSON.stringify({ centerLabel: "Total", centerValue: attTotal }) %>' style="width:120px;height:120px"></canvas>
+      </div>
+      <div style="flex:1;min-width:200px">
+        <div style="display:grid;gap:8px">
+          <div style="display:flex;align-items:center;gap:8px;padding:8px 10px;background:#d1fae5;border-radius:8px">
+            <span style="width:10px;height:10px;border-radius:3px;background:#10b981"></span>
+            <span style="flex:1;font-size:12px;color:var(--gray-600)">Present</span>
+            <strong style="color:var(--success)"><%= attendance.present || 0 %></strong>
+          </div>
+          <div style="display:flex;align-items:center;gap:8px;padding:8px 10px;background:#fee2e2;border-radius:8px">
+            <span style="width:10px;height:10px;border-radius:3px;background:#ef4444"></span>
+            <span style="flex:1;font-size:12px;color:var(--gray-600)">Absent</span>
+            <strong style="color:var(--danger)"><%= attendance.absent || 0 %></strong>
+          </div>
+          <div style="display:flex;align-items:center;gap:8px;padding:8px 10px;background:#fef3c7;border-radius:8px">
+            <span style="width:10px;height:10px;border-radius:3px;background:#f59e0b"></span>
+            <span style="flex:1;font-size:12px;color:var(--gray-600)">Late</span>
+            <strong style="color:var(--warning)"><%= attendance.late || 0 %></strong>
+          </div>
+        </div>
+        <div style="margin-top:12px;text-align:center">
+          <svg data-ring="<%= attPct %>" data-ring-color="#10b981" data-ring-size="100" style="width:100px;height:100px;margin:0 auto"></svg>
+          <div class="text-xs text-muted" style="margin-top:-32px;position:relative;z-index:1;font-weight:700;color:var(--gray-900);font-size:14px"><%= attPct %>%</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="card-header">
+      <div>
+        <div class="card-title">💰 Fee Summary</div>
+        <div class="text-xs text-muted"><%= invoices.length %> invoices on record</div>
+      </div>
+      <span class="badge badge-info"><%= feePct %>% paid</span>
+    </div>
+    <div class="card-body">
+      <div style="display:grid;gap:10px">
+        <div style="padding:12px;background:var(--surface-2);border-radius:8px">
+          <div class="text-xs text-muted">Total Billed</div>
+          <div style="font-size:18px;font-weight:800;color:var(--gray-900)"><%= helpers.formatCurrency(feeTotal) %></div>
+        </div>
+        <div style="display:flex;gap:8px">
+          <div style="flex:1;padding:12px;background:#d1fae5;border-radius:8px">
+            <div class="text-xs text-muted">Paid</div>
+            <div style="font-size:16px;font-weight:800;color:var(--success)"><%= helpers.formatCurrency(feePaid) %></div>
+          </div>
+          <div style="flex:1;padding:12px;background:#fee2e2;border-radius:8px">
+            <div class="text-xs text-muted">Due</div>
+            <div style="font-size:16px;font-weight:800;color:var(--danger)"><%= helpers.formatCurrency(feeDue) %></div>
+          </div>
+        </div>
+        <div style="margin-top:4px">
+          <div style="display:flex;justify-content:space-between;font-size:11px;margin-bottom:4px"><span class="text-muted">Payment Progress</span><strong><%= feePct %>%</strong></div>
+          <div style="height:8px;background:var(--gray-100);border-radius:4px;overflow:hidden"><div style="height:100%;width:<%= feePct %>%;background:linear-gradient(90deg,#10b981,#14b8a6);transition:width 1s ease"></div></div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="card mb-4">
+  <div class="card-header">
+    <div>
+      <div class="card-title">📝 Exam Results</div>
+      <div class="text-xs text-muted"><%= results.length %> results recorded across exams</div>
+    </div>
+    <a href="/admin/results" class="btn btn-ghost btn-sm">All results →</a>
+  </div>
+  <div class="table-wrap">
+    <table class="data-table">
+      <thead><tr><th>Subject</th><th>Exam</th><th>Exam Date</th><th>Marks</th><th>Grade</th></tr></thead>
+      <tbody>
+        <% if (!results.length) { %>
+          <tr><td colspan="5"><div class="empty"><div class="empty-icon">📝</div><div class="empty-title">No results yet</div><div class="empty-sub">This student has not taken any exams.</div></div></td></tr>
+        <% } %>
+        <% results.forEach(r => {
+          const pct = r.total_marks ? Math.round((r.marks_obtained / r.total_marks) * 100) : 0;
+          const passed = r.marks_obtained >= (r.passing_marks || 40);
+        %>
+          <tr>
+            <td>
+              <strong style="font-family:var(--font-mono)"><%= r.subject_code %></strong>
+              <div class="text-xs text-muted"><%= r.subject_name %></div>
+            </td>
+            <td><%= r.exam_name %></td>
+            <td class="text-muted"><%= helpers.formatDate(r.exam_date) %></td>
+            <td>
+              <div style="display:flex;align-items:center;gap:8px">
+                <strong><%= r.marks_obtained %></strong>
+                <span class="text-xs text-muted">/ <%= r.total_marks %></span>
+                <span class="badge badge-neutral"><%= pct %>%</span>
+                <% if (!passed) { %><span class="badge badge-danger">Fail</span><% } %>
+              </div>
+            </td>
+            <td><span class="badge <%= gradeColor(r.grade) %>"><%= r.grade || '—' %></span></td>
+          </tr>
+        <% }) %>
+      </tbody>
+    </table>
+  </div>
+</div>
+
+<div class="card">
+  <div class="card-header">
+    <div>
+      <div class="card-title">🏫 Class Enrollment</div>
+      <div class="text-xs text-muted"><%= classes.length %> classes this student is enrolled in</div>
+    </div>
+  </div>
+  <div class="card-body" style="padding:0">
+    <% if (!classes.length) { %>
+      <div class="empty"><div class="empty-icon">🏫</div><div class="empty-title">Not enrolled in any class</div><div class="empty-sub">Assign this student to a class section.</div></div>
+    <% } else { %>
+      <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(240px,1fr));gap:12px;padding:18px">
+        <% classes.forEach(c => { %>
+          <a href="/admin/classes/<%= c.id %>" style="display:block;padding:12px;background:var(--surface-2);border-radius:10px;border:1px solid var(--border);transition:all .2s">
+            <div style="font-weight:700;color:var(--gray-900);font-size:13px"><%= c.name %></div>
+            <div class="text-xs text-muted" style="margin-top:2px"><%= c.course_code || c.course_name %> · Sem <%= c.semester %></div>
+            <% if (c.section) { %><span class="badge badge-info" style="margin-top:6px">Sec <%= c.section %></span><% } %>
+          </a>
+        <% }) %>
+      </div>
+    <% } %>
+  </div>
+</div>
+<%- include('../partials/layout-bottom') %>

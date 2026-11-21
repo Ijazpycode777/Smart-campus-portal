@@ -1,0 +1,18 @@
+<!DOCTYPE html><html lang="en"><head>
+<meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>403 — Access Denied</title>
+<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;600;700;800&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="/css/main.css">
+</head><body style="background:linear-gradient(135deg,#7f1d1d,#dc2626,#f59e0b)">
+<div style="min-height:100vh;display:flex;align-items:center;justify-content:center;padding:20px">
+  <div style="background:#fff;border-radius:24px;padding:48px;text-align:center;max-width:480px;box-shadow:0 24px 60px rgba(0,0,0,.3)">
+    <div style="font-size:64px;margin-bottom:8px">🚫</div>
+    <h2 style="font-size:22px;margin:0 0 6px">Access Denied</h2>
+    <p style="color:var(--gray-600);font-size:14px;margin:0 0 8px"><%= message || 'You do not have permission to access this page.' %></p>
+    <% if (typeof userRole !== 'undefined' && userRole) { %>
+      <p style="color:var(--gray-500);font-size:12px;margin:0 0 24px">You are currently signed in as <strong style="text-transform:capitalize"><%= userRole %></strong>.</p>
+    <% } %>
+    <a class="btn btn-primary btn-lg" href="/">← Go to My Dashboard</a>
+    <a class="btn btn-ghost" href="/logout" style="margin-left:8px">Sign out</a>
+  </div>
+</div></body></html>

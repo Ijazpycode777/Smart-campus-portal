@@ -1,0 +1,196 @@
+<%- include('../partials/layout-top') %>
+<%
+  const totalSubjects = subjects.length;
+  const totalCredits = subjects.reduce((a, s) => a + (s.credits || 0), 0);
+  const totalClasses = subjects.reduce((a, s) => a + (s.class_count || 0), 0);
+  const avgCredits = totalSubjects ? (totalCredits / totalSubjects).toFixed(1) : '0';
+%>
+
+<div class="hero-banner fade-in">
+  <div style="position:relative">
+    <div style="font-size:11px;opacity:.85;text-transform:uppercase;letter-spacing:.1em;font-weight:600">Curriculum Catalog</div>
+    <h1>Subjects & Syllabus</h1>
+    <p>Maintain the master subject catalog of <%= collegeName %> — credit weights, semester placement and class mappings all in one place.</p>
+    <div class="hero-stat">
+      <div class="num"><%= totalSubjects %></div>
+      <div class="lbl">Subjects</div>
+    </div>
+  </div>
+</div>
+
+<div class="stats-grid">
+  <div class="stat-card slide-up">
+    <div class="stat-icon brand">📘</div>
+    <div style="flex:1">
+      <div class="stat-label">Total Subjects</div>
+      <div class="stat-value"><%= totalSubjects %></div>
+      <div class="stat-delta up">▲ Across curriculum</div>
+    </div>
+  </div>
+  <div class="stat-card slide-up" style="animation-delay:.05s">
+    <div class="stat-icon green">⚖️</div>
+    <div style="flex:1">
+      <div class="stat-label">Total Credits</div>
+      <div class="stat-value"><%= totalCredits %></div>
+      <div class="stat-delta up">▲ Avg <%= avgCredits %> per subject</div>
+    </div>
+  </div>
+  <div class="stat-card slide-up" style="animation-delay:.1s">
+    <div class="stat-icon amber">🏫</div>
+    <div style="flex:1">
+      <div class="stat-label">Class Mappings</div>
+      <div class="stat-value"><%= totalClasses %></div>
+      <div class="stat-delta up">▲ Subject-class links</div>
+    </div>
+  </div>
+  <div class="stat-card slide-up" style="animation-delay:.15s">
+    <div class="stat-icon pink">🏛️</div>
+    <div style="flex:1">
+      <div class="stat-label">Departments</div>
+      <div class="stat-value"><%= departments.length %></div>
+      <div class="stat-delta up">▲ Subject owners</div>
+    </div>
+  </div>
+</div>
+
+<div class="card mb-4">
+  <div class="card-header">
+    <div class="card-title">Search & Filter</div>
+    <button class="btn btn-primary btn-sm" onclick="openAddSubject()">➕ Add Subject</button>
+  </div>
+  <div class="card-body" style="padding:14px 18px">
+    <form method="GET" style="display:grid;grid-template-columns:2fr 1fr auto;gap:10px;align-items:end">
+      <div class="form-group" style="margin:0">
+        <label class="form-label">Search</label>
+        <input class="form-control" type="text" name="q" value="<%= typeof q !== 'undefined' ? q : '' %>" placeholder="Code or name">
+      </div>
+      <div class="form-group" style="margin:0">
+        <label class="form-label">Department</label>
+        <select class="form-select" name="department_id">
+          <option value="">All departments</option>
+          <% departments.forEach(d => { %><option value="<%= d.id %>"><%= d.code %></option><% }) %>
+        </select>
+      </div>
+      <button class="btn btn-primary" type="submit">🔍 Filter</button>
+    </form>
+  </div>
+</div>
+
+<div class="card">
+  <div class="card-header">
+    <div>
+      <div class="card-title">Subjects Directory</div>
+      <div class="text-xs text-muted"><%= subjects.length %> subjects across <%= departments.length %> departments</div>
+    </div>
+  </div>
+  <div class="table-wrap">
+    <table class="data-table">
+      <thead><tr><th>Code</th><th>Subject Name</th><th>Department</th><th>Credits</th><th>Semester</th><th>Classes</th><th>Actions</th></tr></thead>
+      <tbody>
+        <% if (!subjects.length) { %>
+          <tr><td colspan="7"><div class="empty"><div class="empty-icon">📘</div><div class="empty-title">No subjects found</div><div class="empty-sub">Try adjusting your filters or add a new subject.</div></div></td></tr>
+        <% } %>
+        <% subjects.forEach(s => { %>
+          <tr>
+            <td><strong style="font-family:var(--font-mono)"><%= s.code %></strong></td>
+            <td>
+              <div style="font-weight:600;color:var(--gray-900)"><%= s.name %></div>
+              <% if (s.description) { %><div class="text-xs text-muted truncate" style="max-width:320px"><%= s.description %></div><% } %>
+            </td>
+            <td><span class="badge badge-neutral"><%= s.dept_code || '—' %></span><div class="text-xs text-muted"><%= s.dept_name || '—' %></div></td>
+            <td><strong><%= s.credits || 0 %></strong> <span class="text-xs text-muted">cr</span></td>
+            <td><% if (s.semester) { %><span class="badge badge-info">Sem <%= s.semester %></span><% } else { %><span class="text-muted">—</span><% } %></td>
+            <td><strong><%= s.class_count || 0 %></strong> <span class="text-xs text-muted">classes</span></td>
+            <td>
+              <div style="display:flex;gap:4px">
+                <button class="btn btn-ghost btn-sm" onclick='editSubject(<%- JSON.stringify(s) %>)'>✏️</button>
+                <button class="btn btn-ghost btn-sm" style="color:var(--danger)" onclick="deleteSubject(<%= s.id %>, '<%= helpers.escapeHtml(s.name) %>')">🗑️</button>
+              </div>
+            </td>
+          </tr>
+        <% }) %>
+      </tbody>
+    </table>
+  </div>
+</div>
+
+<script>
+  const DEPARTMENTS = <%- JSON.stringify(departments) %>;
+  function openAddSubject() {
+    const deptOpts = `<option value="">— Not assigned —</option>` + DEPARTMENTS.map(d => `<option value="${d.id}">${d.code} — ${d.name}</option>`).join('');
+    const semOpts = [1,2,3,4,5,6,7,8].map(s => `<option value="${s}">Semester ${s}</option>`).join('');
+    const body = `
+      <div class="form-row">
+        <div class="form-group"><label class="form-label">Subject Code <span class="req">*</span></label><input class="form-control" name="code" placeholder="CS101" required></div>
+        <div class="form-group"><label class="form-label">Subject Name <span class="req">*</span></label><input class="form-control" name="name" placeholder="Data Structures" required></div>
+      </div>
+      <div class="form-row">
+        <div class="form-group"><label class="form-label">Department</label><select class="form-select" name="department_id">${deptOpts}</select></div>
+        <div class="form-group"><label class="form-label">Credits</label><input class="form-control" type="number" name="credits" min="0" max="10" step="0.5" value="4"></div>
+      </div>
+      <div class="form-row">
+        <div class="form-group"><label class="form-label">Semester</label><select class="form-select" name="semester"><option value="">— Not fixed —</option>${semOpts}</select></div>
+        <div class="form-group"><label class="form-label">Status</label><select class="form-select" name="is_active"><option value="1">Active</option><option value="0">Inactive</option></select></div>
+      </div>
+      <div class="form-group"><label class="form-label">Description</label><textarea class="form-textarea" name="description" placeholder="Brief syllabus overview…"></textarea></div>
+    `;
+    const { close } = ERP.modal({
+      title: '➕ Add New Subject', body, size: 'lg',
+      footer: `<button class="btn btn-ghost" id="subjCancelBtn">Cancel</button><button class="btn btn-primary" id="subjSaveBtn">Create Subject</button>`
+    });
+    document.getElementById('subjCancelBtn').addEventListener('click', close);
+    document.getElementById('subjSaveBtn').addEventListener('click', () => submitSubject(null, close));
+  }
+  function editSubject(s) {
+    const deptOpts = `<option value="">— Not assigned —</option>` + DEPARTMENTS.map(d => `<option value="${d.id}" ${d.id == s.department_id ? 'selected' : ''}>${d.code} — ${d.name}</option>`).join('');
+    const semOpts = [1,2,3,4,5,6,7,8].map(x => `<option value="${x}" ${x == s.semester ? 'selected' : ''}>Semester ${x}</option>`).join('');
+    const body = `
+      <div class="form-row">
+        <div class="form-group"><label class="form-label">Subject Code</label><input class="form-control" name="code" value="${ERP.escapeHtml(s.code || '')}"></div>
+        <div class="form-group"><label class="form-label">Subject Name</label><input class="form-control" name="name" value="${ERP.escapeHtml(s.name || '')}"></div>
+      </div>
+      <div class="form-row">
+        <div class="form-group"><label class="form-label">Department</label><select class="form-select" name="department_id">${deptOpts}</select></div>
+        <div class="form-group"><label class="form-label">Credits</label><input class="form-control" type="number" name="credits" min="0" max="10" step="0.5" value="${s.credits || 4}"></div>
+      </div>
+      <div class="form-row">
+        <div class="form-group"><label class="form-label">Semester</label><select class="form-select" name="semester"><option value="">— Not fixed —</option>${semOpts}</select></div>
+        <div class="form-group"><label class="form-label">Status</label><select class="form-select" name="is_active"><option value="1" ${s.is_active !== 0 ? 'selected' : ''}>Active</option><option value="0" ${s.is_active === 0 ? 'selected' : ''}>Inactive</option></select></div>
+      </div>
+      <div class="form-group"><label class="form-label">Description</label><textarea class="form-textarea" name="description">${ERP.escapeHtml(s.description || '')}</textarea></div>
+    `;
+    const { close } = ERP.modal({
+      title: `✏️ Edit ${s.name}`, body, size: 'lg',
+      footer: `<button class="btn btn-ghost" id="subjCancelBtn">Cancel</button><button class="btn btn-primary" id="subjSaveBtn">Save Changes</button>`
+    });
+    document.getElementById('subjCancelBtn').addEventListener('click', close);
+    document.getElementById('subjSaveBtn').addEventListener('click', () => submitSubject(s.id, close));
+  }
+  async function submitSubject(id, closeFn) {
+    const modalBody = document.querySelector('.modal-overlay .modal-body');
+    const data = {};
+    modalBody.querySelectorAll('[name]').forEach(i => { data[i.name] = i.value; });
+    const url = id ? '/api/admin/subjects/' + id : '/api/admin/subjects';
+    const method = id ? 'PUT' : 'POST';
+    const btn = document.getElementById('subjSaveBtn');
+    btn.disabled = true; btn.textContent = 'Saving…';
+    try {
+      const res = await ERP.api(url, { method, body: data });
+      ERP.toast('Success', res.message || (id ? 'Subject updated.' : 'Subject created.'), 'success');
+      setTimeout(() => location.reload(), 700);
+    } catch (err) {
+      ERP.toast('Error', err.message || (err.status === 404 ? 'API endpoint not available yet.' : 'Request failed.'), 'error');
+      btn.disabled = false; btn.textContent = id ? 'Save Changes' : 'Create Subject';
+    }
+  }
+  function deleteSubject(id, name) {
+    ERP.confirmDialog('Delete Subject', `Are you sure you want to delete <strong>${name}</strong>? This will also unlink the subject from classes.`, async () => {
+      try {
+        const res = await ERP.api('/api/admin/subjects/' + id, { method: 'DELETE' });
+        ERP.toast('Deleted', res.message || 'Subject removed.', 'success');
+        setTimeout(() => location.reload(), 700);
+      } catch (err) { ERP.toast('Error', err.message, 'error'); }
+    }, { okText: 'Delete', danger: true });
+  }
+</script>
+<%- include('../partials/layout-bottom') %>

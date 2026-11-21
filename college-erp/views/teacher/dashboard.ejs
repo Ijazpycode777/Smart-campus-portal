@@ -1,0 +1,238 @@
+<%- include('../partials/layout-top') %>
+<%
+  const todayName = new Date().toLocaleDateString('en-US', { weekday: 'long' });
+  const todayList = todayName === 'Sunday' ? [] : (today || []).filter(t => t.day_of_week === todayName);
+  const pendingCount = (pendingSubmissions || []).length;
+  const dayMap = { Monday: 'Mon', Tuesday: 'Tue', Wednesday: 'Wed', Thursday: 'Thu', Friday: 'Fri', Saturday: 'Sat' };
+%>
+
+<div class="hero-banner fade-in">
+  <div style="position:relative">
+    <div style="font-size:11px;opacity:.85;text-transform:uppercase;letter-spacing:.1em;font-weight:600">Welcome back, <%= currentUser.fullName.split(' ')[0] %> 👋</div>
+    <h1>Teacher's Workspace</h1>
+    <p><%= stats.teacher.designation || 'Faculty' %><% if (stats.teacher.specialization) { %> · <%= stats.teacher.specialization %><% } %> at <%= collegeName %>. Here is your teaching snapshot for today.</p>
+    <div class="hero-stat">
+      <div class="num"><%= todayList.length %></div>
+      <div class="lbl">Classes Today</div>
+    </div>
+  </div>
+</div>
+
+<div class="stats-grid">
+  <div class="stat-card slide-up">
+    <div class="stat-icon brand">🏫</div>
+    <div style="flex:1">
+      <div class="stat-label">My Classes</div>
+      <div class="stat-value"><%= stats.classes %></div>
+      <div class="stat-delta up">▲ Active assignments</div>
+    </div>
+  </div>
+
+  <div class="stat-card slide-up" style="animation-delay:.05s">
+    <div class="stat-icon green">📚</div>
+    <div style="flex:1">
+      <div class="stat-label">My Subjects</div>
+      <div class="stat-value"><%= stats.subjects %></div>
+      <div class="stat-delta up">▲ Across assigned classes</div>
+    </div>
+  </div>
+
+  <div class="stat-card slide-up" style="animation-delay:.1s">
+    <div class="stat-icon pink">🎓</div>
+    <div style="flex:1">
+      <div class="stat-label">My Students</div>
+      <div class="stat-value"><%= stats.students %></div>
+      <div class="stat-delta up">▲ Under your guidance</div>
+    </div>
+  </div>
+
+  <div class="stat-card slide-up" style="animation-delay:.15s">
+    <div class="stat-icon amber">📝</div>
+    <div style="flex:1">
+      <div class="stat-label">Exams Created</div>
+      <div class="stat-value"><%= stats.exams %></div>
+      <div class="stat-delta up">▲ Assessments administered</div>
+    </div>
+  </div>
+</div>
+
+<div class="charts-grid" style="grid-template-columns:1.2fr 1fr">
+  <div class="card">
+    <div class="card-header">
+      <div>
+        <div class="card-title">Today's Timetable</div>
+        <div class="text-xs text-muted"><%= todayName %>, <%= helpers.formatDate(new Date()) %></div>
+      </div>
+      <a href="/teacher/timetable" class="btn btn-ghost btn-sm">Full week →</a>
+    </div>
+    <div class="card-body" style="padding:0">
+      <% if (!todayList.length) { %>
+        <div class="empty"><div class="empty-icon">☕</div><div class="empty-title">No classes today</div><div class="empty-sub">Enjoy the breather or use the time for grading.</div></div>
+      <% } else { %>
+        <div style="max-height:360px;overflow-y:auto">
+          <% todayList.forEach((t, i) => { %>
+            <div style="display:flex;gap:14px;padding:14px 20px;border-bottom:1px solid var(--border);align-items:center">
+              <div style="text-align:center;min-width:60px">
+                <div style="font-size:11px;color:var(--gray-500);text-transform:uppercase">Start</div>
+                <div style="font-weight:800;font-size:14px;color:var(--brand-600)"><%= t.start_time.slice(0,5) %></div>
+                <div style="font-size:10px;color:var(--gray-400)">to <%= t.end_time.slice(0,5) %></div>
+              </div>
+              <div style="width:4px;align-self:stretch;background:linear-gradient(180deg,#6366f1,#ec4899);border-radius:4px"></div>
+              <div style="flex:1;min-width:0">
+                <div style="font-weight:700;font-size:14px" class="truncate"><%= t.subject_name %></div>
+                <div class="text-xs text-muted"><%= t.subject_code %> · <%= t.class_name %> · Room <%= t.room %></div>
+              </div>
+              <span class="badge badge-info"><%= i + 1 %></span>
+            </div>
+          <% }) %>
+        </div>
+      <% } %>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="card-header">
+      <div>
+        <div class="card-title">Pending Submissions</div>
+        <div class="text-xs text-muted">Awaiting your grade</div>
+      </div>
+      <span class="badge badge-warning badge-dot"><%= pendingCount %> pending</span>
+    </div>
+    <div class="card-body" style="padding:0">
+      <% if (!pendingCount) { %>
+        <div class="empty"><div class="empty-icon">✅</div><div class="empty-title">All caught up</div><div class="empty-sub">No pending submissions to grade.</div></div>
+      <% } else { %>
+        <div style="max-height:360px;overflow-y:auto">
+          <% pendingSubmissions.forEach(s => { %>
+            <div style="display:flex;gap:12px;padding:12px 20px;border-bottom:1px solid var(--border);align-items:center">
+              <div class="avatar avatar-sm" style="background:<%= s.avatar_color %>"><%= helpers.initials(s.full_name) %></div>
+              <div style="flex:1;min-width:0">
+                <div style="font-weight:600;font-size:13px" class="truncate"><%= s.assignment_title %></div>
+                <div class="text-xs text-muted"><%= s.full_name %> · <%= s.roll_number %> · Due <%= helpers.formatDate(s.due_date) %></div>
+              </div>
+              <a class="btn btn-primary btn-sm" href="/teacher/assignments/<%= s.assignment_id || s.id %>">Grade</a>
+            </div>
+          <% }) %>
+        </div>
+      <% } %>
+    </div>
+  </div>
+</div>
+
+<div class="charts-grid" style="grid-template-columns:1.2fr 1fr">
+  <div class="card">
+    <div class="card-header">
+      <div class="card-title">Recent Attendance Sessions</div>
+      <a href="/teacher/attendance" class="btn btn-ghost btn-sm">Mark →</a>
+    </div>
+    <div class="card-body" style="padding:0">
+      <% if (!recentAttendance.length) { %>
+        <div class="empty"><div class="empty-icon">📋</div><div class="empty-title">No recent sessions</div><div class="empty-sub">Mark attendance to see records here.</div></div>
+      <% } else { %>
+        <div class="table-wrap">
+          <table class="data-table">
+            <thead><tr><th>Date</th><th>Subject</th><th>Class</th><th>Present</th><th>Rate</th></tr></thead>
+            <tbody>
+              <% recentAttendance.forEach(r => { %>
+                <tr>
+                  <td><strong><%= helpers.formatDate(r.date) %></strong></td>
+                  <td><%= r.subject_name %><div class="text-xs text-muted"><%= r.subject_code %></div></td>
+                  <td><%= r.class_name %></td>
+                  <td><%= r.count %></td>
+                  <td>
+                    <% const pct = r.total ? Math.round(r.present / r.total * 100) : 0; %>
+                    <span class="badge <%= pct >= 75 ? 'badge-success' : pct >= 50 ? 'badge-warning' : 'badge-danger' %>"><%= pct %>%</span>
+                  </td>
+                </tr>
+              <% }) %>
+            </tbody>
+          </table>
+        </div>
+      <% } %>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="card-header">
+      <div class="card-title">Latest Notices</div>
+      <a href="/teacher/notices" class="btn btn-ghost btn-sm">All →</a>
+    </div>
+    <div class="card-body" style="padding:0">
+      <div style="max-height:360px;overflow-y:auto">
+        <% if (!notices.length) { %>
+          <div class="empty"><div class="empty-icon">📢</div><div class="empty-title">No notices</div></div>
+        <% } else { %>
+          <% notices.forEach(n => { %>
+            <div style="padding:12px 20px;border-bottom:1px solid var(--border)">
+              <div style="display:flex;align-items:center;gap:8px;margin-bottom:4px">
+                <% if (n.priority === 'urgent') { %><span class="badge badge-danger">URGENT</span><% } %>
+                <% if (n.priority === 'high') { %><span class="badge badge-warning">HIGH</span><% } %>
+                <% if (n.is_pinned) { %><span style="font-size:12px">📌</span><% } %>
+                <strong style="font-size:13px;flex:1" class="truncate"><%= n.title %></strong>
+              </div>
+              <div class="text-xs text-muted truncate"><%= (n.content || '').slice(0, 120) %>…</div>
+              <div class="text-xs text-muted" style="margin-top:4px"><%= helpers.timeAgo(n.created_at) %></div>
+            </div>
+          <% }) %>
+        <% } %>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="charts-grid-3">
+  <div class="card">
+    <div class="card-header"><div class="card-title">Teacher Profile</div></div>
+    <div class="card-body">
+      <div style="display:flex;align-items:center;gap:12px;margin-bottom:14px">
+        <div class="avatar avatar-lg" style="background:<%= currentUser.avatarColor %>"><%= helpers.initials(currentUser.fullName) %></div>
+        <div>
+          <div style="font-weight:800;font-size:16px"><%= currentUser.fullName %></div>
+          <div class="text-xs text-muted"><%= stats.teacher.designation || 'Faculty' %></div>
+        </div>
+      </div>
+      <div style="display:grid;gap:8px;font-size:13px">
+        <div style="display:flex;justify-content:space-between;padding:6px 8px;background:var(--surface-2);border-radius:8px"><span class="text-muted">Employee ID</span><strong><%= stats.teacher.employee_id || '—' %></strong></div>
+        <div style="display:flex;justify-content:space-between;padding:6px 8px;background:var(--surface-2);border-radius:8px"><span class="text-muted">Qualification</span><strong><%= stats.teacher.qualification || '—' %></strong></div>
+        <div style="display:flex;justify-content:space-between;padding:6px 8px;background:var(--surface-2);border-radius:8px"><span class="text-muted">Experience</span><strong><%= stats.teacher.experience_years || 0 %> yrs</strong></div>
+        <div style="display:flex;justify-content:space-between;padding:6px 8px;background:var(--surface-2);border-radius:8px"><span class="text-muted">Salary</span><strong><%= helpers.formatCurrency(stats.teacher.salary || 0) %></strong></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="card-header"><div class="card-title">My Classes</div></div>
+    <div class="card-body" style="padding:0">
+      <div style="max-height:280px;overflow-y:auto">
+        <% if (!classes.length) { %>
+          <div class="empty"><div class="empty-title">No classes assigned</div></div>
+        <% } else { %>
+          <% classes.slice(0, 6).forEach(c => { %>
+            <a href="/teacher/classes/<%= c.id %>" style="display:flex;align-items:center;gap:10px;padding:10px 20px;border-bottom:1px solid var(--border);text-decoration:none;color:inherit">
+              <span class="badge badge-info"><%= c.section || '—' %></span>
+              <div style="flex:1;min-width:0">
+                <div style="font-size:13px;font-weight:600" class="truncate"><%= c.name %></div>
+                <div class="text-xs text-muted">Sem <%= c.semester %> · <%= c.student_count %> students</div>
+              </div>
+              <span style="color:var(--gray-400)">→</span>
+            </a>
+          <% }) %>
+        <% } %>
+      </div>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="card-header"><div class="card-title">Quick Actions</div></div>
+    <div class="card-body">
+      <div style="display:grid;gap:8px">
+        <a href="/teacher/attendance" class="btn btn-primary btn-block" style="justify-content:flex-start">📋 Mark Attendance</a>
+        <a href="/teacher/examinations" class="btn btn-ghost btn-block" style="justify-content:flex-start">📝 Create Exam</a>
+        <a href="/teacher/assignments" class="btn btn-ghost btn-block" style="justify-content:flex-start">📁 New Assignment</a>
+        <a href="/teacher/materials" class="btn btn-ghost btn-block" style="justify-content:flex-start">📤 Upload Material</a>
+        <a href="/teacher/leaves" class="btn btn-ghost btn-block" style="justify-content:flex-start">🌴 Apply Leave</a>
+      </div>
+    </div>
+  </div>
+</div>
+<%- include('../partials/layout-bottom') %>

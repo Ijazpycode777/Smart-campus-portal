@@ -1,0 +1,43 @@
+# Render deployment configuration for College Management ERP.
+# Docs: https://render.com/docs/blueprint-spec
+services:
+  - type: web
+    name: college-management-erp
+    runtime: node
+    plan: free            # upgrade to 'starter' for always-on + persistent disk
+    region: oregon        # change to your nearest region
+    branch: main
+    root: .               # this repo is the monolith — root is the project itself
+    buildCommand: npm install
+    startCommand: node src/server.js
+    healthCheckPath: /health
+    autoDeploy: true
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: PORT
+        value: 3000
+      - key: SESSION_SECRET
+        generateValue: true          # Render creates a long random secret
+      - key: DATABASE_PATH
+        value: /opt/data/college_erp.sqlite
+      - key: ADMIN_USERNAME
+        value: admin
+      - key: ADMIN_PASSWORD
+        value: admin123
+      - key: ADMIN_EMAIL
+        value: admin@college.edu
+      - key: RATE_LIMIT_WINDOW_MS
+        value: 900000
+      - key: RATE_LIMIT_MAX
+        value: 300
+    # NOTE: On Render's free tier the filesystem is ephemeral — the SQLite file
+    # is reset on every deploy/reboot. For persistent data:
+    #   1. Upgrade to a paid plan
+    #   2. Attach a persistent Disk (e.g. mount path /opt/data, size 1GB)
+    #   3. Set DATABASE_PATH=/opt/data/college_erp.sqlite
+    #   4. The app auto-seeds on first boot when no admin user is found.
+    disks:
+      - name: erp-data
+        mountPath: /opt/data
+        sizeGB: 1

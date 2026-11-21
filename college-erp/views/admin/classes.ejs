@@ -1,0 +1,155 @@
+<%- include('../partials/layout-top') %>
+<%
+  const totalClasses = classes.length;
+  const totalStudents = classes.reduce((a, c) => a + (c.student_count || 0), 0);
+  const avgCap = totalClasses ? Math.round(classes.reduce((a, c) => a + (c.capacity || 0), 0) / totalClasses) : 0;
+  const totalSubjects = classes.reduce((a, c) => a + (c.subject_count || 0), 0);
+  const cardColors = ['#6366f1','#ec4899','#f59e0b','#10b981','#3b82f6','#8b5cf6','#06b6d4','#f97316','#14b8a6'];
+  const semList = [1,2,3,4,5,6,7,8];
+%>
+
+<div class="hero-banner fade-in">
+  <div style="position:relative">
+    <div style="font-size:11px;opacity:.85;text-transform:uppercase;letter-spacing:.1em;font-weight:600">Academic Operations</div>
+    <h1>Classes & Sections</h1>
+    <p>Build class sections, assign class teachers, manage capacities and link subjects — all organized by course and semester.</p>
+    <div class="hero-stat">
+      <div class="num"><%= totalClasses %></div>
+      <div class="lbl">Active Sections</div>
+    </div>
+  </div>
+</div>
+
+<div class="stats-grid">
+  <div class="stat-card slide-up">
+    <div class="stat-icon brand">🏫</div>
+    <div style="flex:1">
+      <div class="stat-label">Total Classes</div>
+      <div class="stat-value"><%= totalClasses %></div>
+      <div class="stat-delta up">▲ Active for <%= academicYear %></div>
+    </div>
+  </div>
+  <div class="stat-card slide-up" style="animation-delay:.05s">
+    <div class="stat-icon green">👥</div>
+    <div style="flex:1">
+      <div class="stat-label">Students Enrolled</div>
+      <div class="stat-value"><%= totalStudents %></div>
+      <div class="stat-delta up">▲ Across all sections</div>
+    </div>
+  </div>
+  <div class="stat-card slide-up" style="animation-delay:.1s">
+    <div class="stat-icon amber">🎯</div>
+    <div style="flex:1">
+      <div class="stat-label">Avg Capacity</div>
+      <div class="stat-value"><%= avgCap %></div>
+      <div class="stat-delta up">▲ Seats per section</div>
+    </div>
+  </div>
+  <div class="stat-card slide-up" style="animation-delay:.15s">
+    <div class="stat-icon pink">📚</div>
+    <div style="flex:1">
+      <div class="stat-label">Total Subjects</div>
+      <div class="stat-value"><%= totalSubjects %></div>
+      <div class="stat-delta up">▲ Linked to classes</div>
+    </div>
+  </div>
+</div>
+
+<div class="card mb-4">
+  <div class="card-header">
+    <div class="card-title">All Classes</div>
+    <button class="btn btn-primary btn-sm" onclick="openAddClass()">➕ Add Class</button>
+  </div>
+  <div class="card-body" style="padding:0">
+    <% if (!classes.length) { %>
+      <div class="empty"><div class="empty-icon">🏫</div><div class="empty-title">No classes yet</div><div class="empty-sub">Create your first class section to get started.</div></div>
+    <% } else { %>
+      <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(320px,1fr));gap:16px;padding:20px">
+        <% classes.forEach((c, i) => {
+          const pct = c.capacity ? Math.min(100, Math.round((c.student_count / c.capacity) * 100)) : 0;
+          const color = cardColors[i % cardColors.length];
+        %>
+          <div class="card" style="border-color:var(--border);transition:all .2s">
+            <div style="height:6px;background:<%= color %>;border-radius:var(--r-lg) var(--r-lg) 0 0"></div>
+            <div class="card-body" style="padding:16px">
+              <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:8px;margin-bottom:10px">
+                <div>
+                  <div style="font-weight:700;font-size:15px;color:var(--gray-900)"><%= c.name %></div>
+                  <div class="text-xs text-muted"><%= c.course_code %> — <%= c.course_name %></div>
+                </div>
+                <span class="badge" style="background:<%= color %>22;color:<%= color %>;border-color:<%= color %>44">Sem <%= c.semester %></span>
+              </div>
+              <div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:12px">
+                <span class="badge badge-neutral">Sec <%= c.section || '—' %></span>
+                <span class="badge badge-info">Room <%= c.room || '—' %></span>
+                <% if (c.academic_year) { %><span class="badge badge-purple"><%= c.academic_year %></span><% } %>
+              </div>
+              <div style="display:flex;align-items:center;gap:8px;margin-bottom:10px;font-size:12px">
+                <span style="font-size:14px">👩‍🏫</span>
+                <span class="text-muted">Class Teacher:</span>
+                <strong><%= c.class_teacher_name || 'Not assigned' %></strong>
+              </div>
+              <div style="margin-bottom:8px">
+                <div style="display:flex;justify-content:space-between;font-size:11px;margin-bottom:4px"><span class="text-muted">Enrollment</span><strong><%= c.student_count %>/<%= c.capacity %></strong></div>
+                <div style="height:6px;background:var(--gray-100);border-radius:3px;overflow:hidden">
+                  <div style="height:100%;width:<%= pct %>%;background:<%= pct >= 90 ? 'var(--danger)' : pct >= 70 ? 'var(--warning)' : 'var(--success)' %>;transition:width 1s ease"></div>
+                </div>
+              </div>
+              <div style="display:flex;justify-content:space-between;align-items:center;padding-top:10px;border-top:1px solid var(--border)">
+                <div class="text-xs text-muted">📚 <%= c.subject_count || 0 %> subjects</div>
+                <a href="/admin/classes/<%= c.id %>" class="btn btn-primary btn-sm">Manage →</a>
+              </div>
+            </div>
+          </div>
+        <% }) %>
+      </div>
+    <% } %>
+  </div>
+</div>
+
+<script>
+  const COURSES = <%- JSON.stringify(courses) %>;
+  const TEACHERS = <%- JSON.stringify(teachers) %>;
+  const SEM_LIST = <%- JSON.stringify(semList) %>;
+  function openAddClass() {
+    const courseOpts = COURSES.map(c => `<option value="${c.id}">${c.code} — ${c.name}</option>`).join('');
+    const teacherOpts = `<option value="">— Not assigned —</option>` + TEACHERS.map(t => `<option value="${t.id}">${t.full_name} (${t.employee_id || t.id})</option>`).join('');
+    const semOpts = SEM_LIST.map(s => `<option value="${s}">Semester ${s}</option>`).join('');
+    const body = `
+      <div class="form-group"><label class="form-label">Class Name <span class="req">*</span></label><input class="form-control" name="name" placeholder="e.g. CS-A 2024" required></div>
+      <div class="form-row">
+        <div class="form-group"><label class="form-label">Course</label><select class="form-select" name="course_id">${courseOpts}</select></div>
+        <div class="form-group"><label class="form-label">Semester</label><select class="form-select" name="semester">${semOpts}</select></div>
+      </div>
+      <div class="form-row">
+        <div class="form-group"><label class="form-label">Section</label><input class="form-control" name="section" placeholder="A / B / C" value="A"></div>
+        <div class="form-group"><label class="form-label">Room</label><input class="form-control" name="room" placeholder="201"></div>
+      </div>
+      <div class="form-row">
+        <div class="form-group"><label class="form-label">Class Teacher</label><select class="form-select" name="class_teacher_id">${teacherOpts}</select></div>
+        <div class="form-group"><label class="form-label">Capacity</label><input class="form-control" type="number" name="capacity" min="1" value="60"></div>
+      </div>
+      <div class="form-group"><label class="form-label">Academic Year</label><input class="form-control" name="academic_year" value="${new Date().getFullYear()}-${new Date().getFullYear()+1}"></div>
+    `;
+    const { close } = ERP.modal({
+      title: '➕ Add New Class',
+      body, size: 'lg',
+      footer: `<button class="btn btn-ghost" id="classCancelBtn">Cancel</button><button class="btn btn-primary" id="classSaveBtn">Create Class</button>`
+    });
+    document.getElementById('classCancelBtn').addEventListener('click', close);
+    document.getElementById('classSaveBtn').addEventListener('click', () => submitClass(close));
+  }
+  async function submitClass(closeFn) {
+    const modalBody = document.querySelector('.modal-overlay .modal-body');
+    const data = {};
+    modalBody.querySelectorAll('[name]').forEach(i => { data[i.name] = i.value; });
+    const btn = document.getElementById('classSaveBtn');
+    btn.disabled = true; btn.textContent = 'Creating…';
+    try {
+      const res = await ERP.api('/api/admin/classes', { method: 'POST', body: data });
+      ERP.toast('Success', res.message || 'Class created.', 'success');
+      setTimeout(() => location.reload(), 700);
+    } catch (err) { ERP.toast('Error', err.message, 'error'); btn.disabled = false; btn.textContent = 'Create Class'; }
+  }
+</script>
+<%- include('../partials/layout-bottom') %>
