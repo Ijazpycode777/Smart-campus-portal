@@ -38,8 +38,25 @@ from app.database.session import get_db  # noqa: E402
 from app.main import app  # noqa: E402
 from app.middleware import csrf as csrf_module  # noqa: E402
 
-# Bypass CSRF in the test suite (CSRF logic is unit-tested separately where useful).
+# Bypass CSRF in the test suite by default so endpoint tests can focus on
+# behaviour. Real CSRF validation is exercised via the `real_csrf` fixture
+# (see tests/test_csrf.py) which restores the original matcher for a test.
+_real_csrf_tokens_match = csrf_module.csrf_tokens_match
 csrf_module.csrf_tokens_match = lambda a, b: True
+
+
+@pytest.fixture
+def real_csrf():
+    """Restore the real CSRF token matcher for tests that exercise CSRF end-to-end.
+
+    The default suite mock (``csrf_tokens_match = lambda a, b: True``) is
+    swapped back to the real hmac-compare function for the duration of the
+    test, then restored so other tests keep their fast-path bypass.
+    """
+    saved = csrf_module.csrf_tokens_match
+    csrf_module.csrf_tokens_match = _real_csrf_tokens_match
+    yield
+    csrf_module.csrf_tokens_match = saved
 
 
 @pytest_asyncio.fixture
@@ -131,10 +148,6 @@ async def academic_setup(admin_client):
     assert subj.status_code == 200, subj.text
     room = await admin_client.post("/api/v1/classrooms", json={"room_number": "101", "capacity": 40})
     assert room.status_code == 200, room.text
-    shift = await admin_client.post("/api/v1/campus/shifts", json={
-        "name": "Morning", "code": "MORNING", "start_time": "08:00", "end_time": "14:00", "is_active": True,
-    })
-    assert shift.status_code == 200, shift.text
     return {
         "session_id": sess.json()["id"],
         "program_id": prog.json()["id"],
@@ -142,7 +155,6 @@ async def academic_setup(admin_client):
         "section_id": sec.json()["id"],
         "subject_id": subj.json()["id"],
         "classroom_id": room.json()["id"],
-        "shift_id": shift.json()["id"],
         # Free-text placement names (match what was created above so the
         # student create endpoint's find-or-create resolves to the same rows).
         "program_name": "ICS",

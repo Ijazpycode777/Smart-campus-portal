@@ -1,24 +1,29 @@
 import { Users, GraduationCap, Wallet, TrendingUp, Layers, Megaphone } from "lucide-react";
 import { Link, useNavigate } from "react-router-dom";
-import { PageHeader, StatCard, Card, CardHeader, ErrorState, Skeleton } from "@/components/common";
+import { PageHeader, StatCard, Card, CardHeader, ErrorState, Skeleton, HeroBanner } from "@/components/common";
 import { TrendAreaChart, CategoryBarChart, DistributionDonut, HorizontalBarChart } from "@/components/charts";
 import { useAdminDashboard } from "./queries";
+import { useAuth } from "@/hooks/useAuth";
 import { formatCurrency, formatDateTime } from "@/lib/utils";
 
 export function AdminDashboard() {
   const { data, isLoading, isError, refetch } = useAdminDashboard();
+  const { profile } = useAuth();
   const navigate = useNavigate();
 
   if (isError) return <ErrorState message="Failed to load dashboard data." onRetry={() => refetch()} />;
   if (isLoading || !data) return <DashboardSkeleton />;
 
   const stat = (i: number) => Number(data.stats[i]?.value ?? 0);
+  const firstName = profile?.user.full_name.split(" ")[0] ?? "Admin";
 
   return (
     <div>
-      <PageHeader title="Administrator Dashboard" description="College-wide overview across enrolment, finance and performance." />
+      <HeroBanner emoji="🎓" title="College at a Glance" subtitle={`Welcome back, ${firstName}`}>
+        <span className="opacity-90">{stat(0)} students · {stat(1)} teachers · {stat(2)} active classes · {formatCurrency(stat(4))} collected</span>
+      </HeroBanner>
 
-      <div className="grid grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-4">
+      <div className="grid grid-cols-2 lg:grid-cols-3 gap-4">
         <Link to="/students"><StatCard label="Total Students" value={stat(0)} tone="primary" icon={Users} /></Link>
         <Link to="/teachers"><StatCard label="Total Teachers" value={stat(1)} tone="primary" icon={GraduationCap} /></Link>
         <Link to="/students"><StatCard label="Active Classes" value={stat(2)} tone="primary" icon={Layers} /></Link>
@@ -28,8 +33,8 @@ export function AdminDashboard() {
       </div>
 
       <div className="grid lg:grid-cols-3 gap-4 mt-6">
-        <Card>
-          <CardHeader title="Student enrolment" subtitle="Active students by program"
+        <Card className="card-hover">
+          <CardHeader title="Student enrolment" subtitle="Active students by program · click to view"
             action={<Link to="/students" className="text-xs text-indigo font-medium">View</Link>} />
           <div className="p-4 cursor-pointer" onClick={() => navigate("/students")} role="button" aria-label="Open student list">
             {data.program_distribution.length
@@ -37,8 +42,8 @@ export function AdminDashboard() {
               : <p className="text-sm text-slate-muted py-10 text-center">No enrolled students yet.</p>}
           </div>
         </Card>
-        <Card className="lg:col-span-2">
-          <CardHeader title="Fee collection" subtitle="Collected amount by month"
+        <Card className="lg:col-span-2 card-hover">
+          <CardHeader title="Fee collection" subtitle="Collected amount by month · click to view"
             action={<Link to="/fees" className="text-xs text-indigo font-medium">View</Link>} />
           <div className="p-4 cursor-pointer" onClick={() => navigate("/fees")} role="button" aria-label="Open fee management">
             {data.fee_collection_trend.length
@@ -49,8 +54,8 @@ export function AdminDashboard() {
       </div>
 
       <div className="grid lg:grid-cols-3 gap-4 mt-4">
-        <Card className="lg:col-span-2">
-          <CardHeader title="Class & section comparison" subtitle="Enrolled students per class · section"
+        <Card className="lg:col-span-2 card-hover">
+          <CardHeader title="Class & section comparison" subtitle="Enrolled students per class · section · click to view"
             action={<Link to="/students" className="text-xs text-indigo font-medium">View</Link>} />
           <div className="p-4 cursor-pointer" onClick={() => navigate("/students")} role="button" aria-label="Open student list">
             {data.class_comparison.length
@@ -58,8 +63,8 @@ export function AdminDashboard() {
               : <p className="text-sm text-slate-muted py-10 text-center">No enrolments yet.</p>}
           </div>
         </Card>
-        <Card>
-          <CardHeader title="Examination performance" subtitle="Average score by exam type"
+        <Card className="card-hover">
+          <CardHeader title="Examination performance" subtitle="Average score by exam type · click to view"
             action={<Link to="/examinations" className="text-xs text-indigo font-medium">View</Link>} />
           <div className="p-4 cursor-pointer" onClick={() => navigate("/examinations")} role="button" aria-label="Open examinations">
             {data.examination_performance.length

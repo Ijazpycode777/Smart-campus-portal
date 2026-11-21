@@ -17,7 +17,6 @@ from app.models.people import (
     StudentAcademicHistory,
     StudentEnrolment,
 )
-from app.models.campus import CampusShift, RollNumberScheme
 from app.models.user import User
 from app.repositories.audit import record_audit, snapshot
 from app.security.password import hash_password
@@ -157,59 +156,24 @@ async def _next_admission_number(db: AsyncSession, admitted_on: date) -> str:
     return f"{prefix}-{count + 1:05d}"
 
 
-async def _next_roll_number_for_section(db: AsyncSession, session_id: str, section_id: str) -> int:
-    result = await db.execute(
-        select(StudentEnrolment.roll_number).where(
-            StudentEnrolment.academic_session_id == session_id,
-            StudentEnrolment.section_id == section_id,
-        )
-    )
-    return next_roll_number([r for r in result.scalars().all()])
+async def _next_roll_number_for_section(
+    db: AsyncSession, session_id: str, section_id: str, *, exclude_student_id: str | None = None
+) -> int:
+    """Smallest positive roll number not yet used in (academic_session, section).
 
-
-async def _validate_roll(
-    db: AsyncSession,
-    campus_shift_id: str,
-    roll_number: int,
-    class_id: str | None,
-    section_id: str | None,
-    exclude_student_id: str | None = None,
-) -> RollNumberScheme | None:
-    """Validate a manually-assigned roll number.
-
-    - Must be unique within the campus shift (institution-wide).
-    - If a RollNumberScheme exists for (shift, class[, section]) the roll must
-      fall within [min_roll, max_roll]. Section-specific schemes take precedence
-      over class-wide (section_id IS NULL) ones.
-
-    Returns the matched scheme (if any). Raises ConflictError/ValidationError.
+    Roll numbers are auto-assigned and unique within an academic session +
+    section. ``exclude_student_id`` keeps a student's own existing enrolments
+    out of the occupied set, so re-resolving the same placement (or repeating a
+    class) lets the student keep their current roll instead of being bumped.
     """
-    if roll_number < 1:
-        raise ValidationError("Roll number must be a positive integer.")
-    dup_stmt = select(Student.id).where(
-        Student.campus_shift_id == campus_shift_id,
-        Student.current_roll_number == roll_number,
+    stmt = select(StudentEnrolment.roll_number).where(
+        StudentEnrolment.academic_session_id == session_id,
+        StudentEnrolment.section_id == section_id,
     )
     if exclude_student_id:
-        dup_stmt = dup_stmt.where(Student.id != exclude_student_id)
-    if (await db.execute(dup_stmt)).scalar_one_or_none() is not None:
-        raise ConflictError(
-            f"Roll number {roll_number} is already assigned to another student in this campus shift."
-        )
-    scheme = None
-    if class_id:
-        scheme_stmt = select(RollNumberScheme).where(
-            RollNumberScheme.campus_shift_id == campus_shift_id,
-            RollNumberScheme.class_id == class_id,
-            or_(RollNumberScheme.section_id == section_id, RollNumberScheme.section_id.is_(None)),
-        )
-        scheme = (await db.execute(scheme_stmt)).scalars().first()
-        if scheme is not None and not (scheme.min_roll <= roll_number <= scheme.max_roll):
-            raise ValidationError(
-                f"Roll number {roll_number} is outside the configured range "
-                f"{scheme.min_roll}-{scheme.max_roll} for this class."
-            )
-    return scheme
+        stmt = stmt.where(StudentEnrolment.student_id != exclude_student_id)
+    result = await db.execute(stmt)
+    return next_roll_number([r for r in result.scalars().all()])
 
 
 async def create_student(db: AsyncSession, actor: User, data: dict[str, Any]) -> Student:
@@ -269,11 +233,7 @@ async def create_student(db: AsyncSession, actor: User, data: dict[str, Any]) ->
         db.add(guardian)
         await db.flush()
 
-    roll = int(data["roll_number"])
-    shift = await db.get(CampusShift, data["campus_shift_id"])
-    if shift is None:
-        raise NotFoundError("Campus shift not found.")
-    await _validate_roll(db, data["campus_shift_id"], roll, data["class_id"], data["section_id"])
+    roll = await _next_roll_number_for_section(db, data["academic_session_id"], data["section_id"])
     admission_no = await _next_admission_number(db, data["admission_date"])
 
     student = Student(
@@ -292,7 +252,6 @@ async def create_student(db: AsyncSession, actor: User, data: dict[str, Any]) ->
         current_section_id=data["section_id"],
         current_session_id=data["academic_session_id"],
         current_roll_number=roll,
-        campus_shift_id=data["campus_shift_id"],
     )
     db.add(student)
     await db.flush()
@@ -304,7 +263,6 @@ async def create_student(db: AsyncSession, actor: User, data: dict[str, Any]) ->
         class_id=data["class_id"],
         section_id=data["section_id"],
         roll_number=roll,
-        campus_shift_id=data["campus_shift_id"],
         is_active=True,
     )
     db.add(enrolment)
@@ -343,12 +301,13 @@ async def update_student(db: AsyncSession, actor: User, student: Student, data: 
         if data.get(k) is not None:
             setattr(student, k, data[k])
 
-    # Free-text placement + manual roll/shift. Placement is resolved first
-    # (find-or-create), then the effective shift/roll is validated against the
-    # (possibly new) class and the active enrolment is synced in place.
+    # Free-text placement. When placement changes, re-resolve the rows and
+    # re-assign a roll number for the (possibly new) session + section, then
+    # sync the active enrolment in place. Roll numbers are auto-assigned and
+    # unique within (academic_session, section); the student's own enrolments
+    # are excluded so re-resolving the same placement keeps their current roll.
     placement_keys = ("program", "class_name", "section", "academic_session")
     placement_changed = any(data.get(k) for k in placement_keys)
-    roll_or_shift_changed = data.get("campus_shift_id") is not None or data.get("roll_number") is not None
 
     if placement_changed:
         cur_program = await db.get(Program, student.current_program_id) if student.current_program_id else None
@@ -369,45 +328,28 @@ async def update_student(db: AsyncSession, actor: User, student: Student, data: 
         student.current_section_id = sec.id
         student.current_session_id = sess.id
 
-    # Roll number / campus shift are manually assigned. Validate whenever either
-    # changes, or whenever placement changed (the new class may use a different
-    # scheme / may already hold that roll in this shift).
-    if placement_changed or roll_or_shift_changed:
-        shift_id = data.get("campus_shift_id") or student.campus_shift_id
-        roll = data.get("roll_number") or student.current_roll_number
-        if not shift_id:
-            raise ValidationError("A campus shift is required to assign a roll number.")
-        if await db.get(CampusShift, shift_id) is None:
-            raise NotFoundError("Campus shift not found.")
-        if roll is None:
-            raise ValidationError("A roll number is required.")
-        await _validate_roll(
-            db, shift_id, int(roll), student.current_class_id,
-            student.current_section_id, exclude_student_id=student.id,
+        roll = await _next_roll_number_for_section(
+            db, sess.id, sec.id, exclude_student_id=student.id,
         )
-        student.campus_shift_id = shift_id
-        student.current_roll_number = int(roll)
+        student.current_roll_number = roll
         enr_res = await db.execute(select(StudentEnrolment).where(
             StudentEnrolment.student_id == student.id, StudentEnrolment.is_active.is_(True)
         ))
         enr = enr_res.scalar_one_or_none()
         if enr is None:
             enr = StudentEnrolment(
-                student_id=student.id, academic_session_id=student.current_session_id,
-                program_id=student.current_program_id, class_id=student.current_class_id,
-                section_id=student.current_section_id, roll_number=int(roll),
-                campus_shift_id=shift_id, is_active=True,
+                student_id=student.id, academic_session_id=sess.id,
+                program_id=prog.id, class_id=cls.id,
+                section_id=sec.id, roll_number=roll, is_active=True,
             )
             db.add(enr)
             await db.flush()
         else:
-            enr.roll_number = int(roll)
-            enr.campus_shift_id = shift_id
-            if placement_changed:
-                enr.program_id = student.current_program_id
-                enr.class_id = student.current_class_id
-                enr.section_id = student.current_section_id
-                enr.academic_session_id = student.current_session_id
+            enr.roll_number = roll
+            enr.program_id = prog.id
+            enr.class_id = cls.id
+            enr.section_id = sec.id
+            enr.academic_session_id = sess.id
 
     await record_audit(
         db, actor_id=actor.id, actor_role=actor.role,
@@ -470,12 +412,11 @@ async def promote(db: AsyncSession, actor: User, data: dict[str, Any]) -> Studen
     if prev_enrolment:
         prev_enrolment.is_active = False
 
-    new_roll = int(data["new_roll_number"])
-    shift_id = student.campus_shift_id
-    if not shift_id:
-        raise ValidationError("Student has no campus shift; assign one before promoting.")
-    await _validate_roll(
-        db, shift_id, new_roll, data["new_class_id"], data["new_section_id"],
+    # Auto-assign the next roll number in the new (session, section). The
+    # student's own enrolments (including the one just deactivated above) are
+    # excluded so a repeat in the same section can keep the same roll.
+    new_roll = await _next_roll_number_for_section(
+        db, data["new_academic_session_id"], data["new_section_id"],
         exclude_student_id=student.id,
     )
     new_enrolment = StudentEnrolment(
@@ -485,7 +426,6 @@ async def promote(db: AsyncSession, actor: User, data: dict[str, Any]) -> Studen
         class_id=data["new_class_id"],
         section_id=data["new_section_id"],
         roll_number=new_roll,
-        campus_shift_id=shift_id,
         is_active=True,
     )
     db.add(new_enrolment)

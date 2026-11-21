@@ -97,7 +97,7 @@ async def cancel_entry(db: AsyncSession, actor, entry: TimetableEntry) -> Timeta
 async def update_entry(db: AsyncSession, actor, entry: TimetableEntry, data: dict[str, Any]) -> TimetableEntry:
     """Update a scheduled lecture and re-run conflict validation (excluding self)."""
     for k in ("day_of_week", "start_time", "end_time", "subject_id", "teacher_id",
-              "class_id", "section_id", "classroom_id", "period_name", "campus_shift_id"):
+              "class_id", "section_id", "classroom_id", "period_name"):
         if data.get(k) is not None:
             setattr(entry, k, data[k])
     if entry.end_time <= entry.start_time:
