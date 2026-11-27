@@ -1,0 +1,206 @@
+<%- include('../partials/layout-top') %>
+<%
+  const collectedPct = totals.total ? Math.round((totals.paid / totals.total) * 100) : 0;
+  const statusBadge = (s) => {
+    const map = { paid: 'badge-success', unpaid: 'badge-danger', 'partially paid': 'badge-warning', overdue: 'badge-danger' };
+    return map[(s || '').toLowerCase()] || 'badge-neutral';
+  };
+  const statusLabel = (s) => s ? s.split('_').map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(' ') : '—';
+  const FILTERS = ['all','unpaid','partially_paid','paid','overdue'];
+  const FILTER_LABELS = { all: 'All', unpaid: 'Unpaid', partially_paid: 'Partially Paid', paid: 'Paid', overdue: 'Overdue' };
+%>
+
+<div class="hero-banner fade-in">
+  <div style="position:relative">
+    <div style="font-size:11px;opacity:.85;text-transform:uppercase;letter-spacing:.1em;font-weight:600">Finance & Billing</div>
+    <h1>Fee Management</h1>
+    <p>Track invoices, record payments and monitor dues for <%= collegeName %> students in real time.</p>
+    <div class="hero-stat">
+      <div class="num"><%= collectedPct %>%</div>
+      <div class="lbl">Collection Rate</div>
+    </div>
+  </div>
+</div>
+
+<div class="stats-grid">
+  <div class="stat-card slide-up">
+    <div class="stat-icon brand">📄</div>
+    <div style="flex:1">
+      <div class="stat-label">Total Invoices</div>
+      <div class="stat-value"><%= totals.count %></div>
+      <div class="stat-delta up">▲ Issued to students</div>
+    </div>
+  </div>
+  <div class="stat-card slide-up" style="animation-delay:.05s">
+    <div class="stat-icon blue" style="background:var(--gradient-ocean);box-shadow:0 6px 16px rgba(59,130,246,.35)">💸</div>
+    <div style="flex:1">
+      <div class="stat-label">Total Amount</div>
+      <div class="stat-value"><%= helpers.formatCurrency(totals.total) %></div>
+      <div class="stat-delta up">▲ Billed this year</div>
+    </div>
+  </div>
+  <div class="stat-card slide-up" style="animation-delay:.1s">
+    <div class="stat-icon green">✅</div>
+    <div style="flex:1">
+      <div class="stat-label">Collected</div>
+      <div class="stat-value"><%= helpers.formatCurrency(totals.paid) %></div>
+      <div class="stat-delta up">▲ <%= collectedPct %>% of total</div>
+    </div>
+  </div>
+  <div class="stat-card slide-up" style="animation-delay:.15s">
+    <div class="stat-icon red" style="background:linear-gradient(135deg,#ef4444,#f87171);box-shadow:0 6px 16px rgba(239,68,68,.35)">⏳</div>
+    <div style="flex:1">
+      <div class="stat-label">Pending Dues</div>
+      <div class="stat-value"><%= helpers.formatCurrency(totals.due) %></div>
+      <div class="stat-delta down">▼ Outstanding balance</div>
+    </div>
+  </div>
+</div>
+
+<div class="card mb-4">
+  <div class="card-header">
+    <div class="card-title">Filter Invoices</div>
+    <button class="btn btn-primary btn-sm" onclick="openCreateInvoice()">➕ Create Invoice</button>
+  </div>
+  <div class="card-body" style="padding:14px 18px">
+    <form method="GET" style="display:flex;gap:6px;flex-wrap:wrap;align-items:center">
+      <input type="hidden" name="filter" value="">
+      <a href="/admin/fees" class="badge badge-<%= (!status || status === 'all') ? 'success' : 'neutral' %>" style="padding:8px 14px;font-size:12px;cursor:pointer">All</a>
+      <a href="/admin/fees?status=unpaid" class="badge badge-<%= status === 'unpaid' ? 'success' : 'neutral' %>" style="padding:8px 14px;font-size:12px;cursor:pointer">Unpaid</a>
+      <a href="/admin/fees?status=partially_paid" class="badge badge-<%= status === 'partially_paid' ? 'success' : 'neutral' %>" style="padding:8px 14px;font-size:12px;cursor:pointer">Partially Paid</a>
+      <a href="/admin/fees?status=paid" class="badge badge-<%= status === 'paid' ? 'success' : 'neutral' %>" style="padding:8px 14px;font-size:12px;cursor:pointer">Paid</a>
+      <a href="/admin/fees?status=overdue" class="badge badge-<%= status === 'overdue' ? 'success' : 'neutral' %>" style="padding:8px 14px;font-size:12px;cursor:pointer">Overdue</a>
+    </form>
+  </div>
+</div>
+
+<div class="card">
+  <div class="card-header">
+    <div>
+      <div class="card-title">Invoices</div>
+      <div class="text-xs text-muted"><%= invoices.length %> invoices shown · filtered by: <strong><%= status ? status.replace('_', ' ') : 'all' %></strong></div>
+    </div>
+    <button class="btn btn-ghost btn-sm" onclick="exportInvoices()">⬇ Export</button>
+  </div>
+  <div class="table-wrap">
+    <table class="data-table">
+      <thead><tr><th>Invoice #</th><th>Student</th><th>Course / Sem</th><th>Total</th><th>Paid</th><th>Due Date</th><th>Status</th><th>Actions</th></tr></thead>
+      <tbody>
+        <% if (!invoices.length) { %>
+          <tr><td colspan="8"><div class="empty"><div class="empty-icon">📄</div><div class="empty-title">No invoices found</div><div class="empty-sub">Try a different filter or create a new invoice.</div></div></td></tr>
+        <% } %>
+        <% invoices.forEach(inv => {
+          const dueLeft = parseFloat(inv.total_amount) - parseFloat(inv.paid_amount || 0);
+          const today = new Date();
+          const due = new Date(inv.due_date);
+          const isOverdue = dueLeft > 0 && due < today;
+        %>
+          <tr>
+            <td><strong style="font-family:var(--font-mono)"><%= inv.invoice_number %></strong><div class="text-xs text-muted">AY <%= inv.academic_year %></div></td>
+            <td>
+              <div style="display:flex;align-items:center;gap:10px">
+                <div class="avatar avatar-sm" style="background:<%= inv.avatar_color %>"><%= helpers.initials(inv.full_name) %></div>
+                <div>
+                  <div style="font-weight:600;color:var(--gray-900)"><%= inv.full_name %></div>
+                  <div class="text-xs text-muted"><%= inv.roll_number %></div>
+                </div>
+              </div>
+            </td>
+            <td><span class="badge badge-neutral"><%= inv.course_code %></span> <span class="text-xs text-muted">Sem <%= inv.semester %></span></td>
+            <td><strong><%= helpers.formatCurrency(inv.total_amount) %></strong></td>
+            <td><strong style="color:var(--success)"><%= helpers.formatCurrency(inv.paid_amount) %></strong><div class="text-xs text-muted">due <%= helpers.formatCurrency(dueLeft) %></div></td>
+            <td><%= helpers.formatDate(inv.due_date) %><% if (isOverdue) { %> <span class="badge badge-danger">overdue</span><% } %></td>
+            <td><span class="badge <%= statusBadge(inv.status) %> badge-dot"><%= statusLabel(inv.status) %></span></td>
+            <td>
+              <% if (dueLeft > 0) { %>
+                <button class="btn btn-primary btn-sm" onclick='openPayment(<%- JSON.stringify(inv) %>)'>💳 Record Payment</button>
+              <% } else { %>
+                <span class="badge badge-success">Fully Paid</span>
+              <% } %>
+            </td>
+          </tr>
+        <% }) %>
+      </tbody>
+    </table>
+  </div>
+</div>
+
+<script>
+  const STUDENTS = <%- JSON.stringify(students) %>;
+  function openPayment(inv) {
+    const dueLeft = parseFloat(inv.total_amount) - parseFloat(inv.paid_amount || 0);
+    const body = `
+      <div class="alert alert-info">Recording payment for invoice <strong>${inv.invoice_number}</strong> (${ERP.escapeHtml(inv.full_name)}).</div>
+      <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;margin-bottom:14px">
+        <div style="padding:10px;background:var(--surface-2);border-radius:8px"><div class="text-xs text-muted">Total</div><div style="font-weight:700">${inv.currency_symbol || '<%= currencySymbol %>'} ${inv.total_amount}</div></div>
+        <div style="padding:10px;background:var(--surface-2);border-radius:8px"><div class="text-xs text-muted">Paid</div><div style="font-weight:700;color:var(--success)">${inv.currency_symbol || '<%= currencySymbol %>'} ${inv.paid_amount || 0}</div></div>
+        <div style="padding:10px;background:var(--surface-2);border-radius:8px"><div class="text-xs text-muted">Due</div><div style="font-weight:700;color:var(--danger)">${inv.currency_symbol || '<%= currencySymbol %>'} ${dueLeft.toFixed(2)}</div></div>
+      </div>
+      <input type="hidden" name="invoice_id" value="${inv.id}">
+      <div class="form-group"><label class="form-label">Amount <span class="req">*</span></label><input class="form-control" type="number" name="amount" min="1" max="${dueLeft}" step="0.01" value="${dueLeft.toFixed(2)}" required></div>
+      <div class="form-row">
+        <div class="form-group"><label class="form-label">Payment Method</label><select class="form-select" name="payment_method"><option value="cash">Cash</option><option value="upi">UPI</option><option value="card">Card</option><option value="bank_transfer">Bank Transfer</option><option value="cheque">Cheque</option></select></div>
+        <div class="form-group"><label class="form-label">Transaction ID</label><input class="form-control" name="transaction_id" placeholder="TXN-XXXX"></div>
+      </div>
+    `;
+    const { close } = ERP.modal({
+      title: '💳 Record Payment', body, size: 'lg',
+      footer: `<button class="btn btn-ghost" id="payCancelBtn">Cancel</button><button class="btn btn-primary" id="paySaveBtn">Record Payment</button>`
+    });
+    document.getElementById('payCancelBtn').addEventListener('click', close);
+    document.getElementById('paySaveBtn').addEventListener('click', () => submitPayment(close));
+  }
+  async function submitPayment(closeFn) {
+    const modalBody = document.querySelector('.modal-overlay .modal-body');
+    const data = {};
+    modalBody.querySelectorAll('[name]').forEach(i => { data[i.name] = i.value; });
+    const btn = document.getElementById('paySaveBtn');
+    btn.disabled = true; btn.textContent = 'Processing…';
+    try {
+      const res = await ERP.api('/api/admin/fees/payment', { method: 'POST', body: data });
+      ERP.toast('Success', res.message || 'Payment recorded.', 'success');
+      setTimeout(() => location.reload(), 700);
+    } catch (err) { ERP.toast('Error', err.message, 'error'); btn.disabled = false; btn.textContent = 'Record Payment'; }
+  }
+  function openCreateInvoice() {
+    const studentOpts = `<option value="">— Select student —</option>` + STUDENTS.map(s => `<option value="${s.id}">${s.roll_number || s.id} — ${ERP.escapeHtml(s.full_name)}</option>`).join('');
+    const body = `
+      <div class="form-group"><label class="form-label">Student <span class="req">*</span></label><select class="form-select" name="student_id" required>${studentOpts}</select></div>
+      <div class="form-row">
+        <div class="form-group"><label class="form-label">Total Amount <span class="req">*</span></label><input class="form-control" type="number" name="total_amount" min="1" step="0.01" value="50000" required></div>
+        <div class="form-group"><label class="form-label">Semester</label><input class="form-control" type="number" name="semester" min="1" max="8" value="1"></div>
+      </div>
+      <div class="form-row">
+        <div class="form-group"><label class="form-label">Academic Year</label><input class="form-control" name="academic_year" value="${new Date().getFullYear()}-${new Date().getFullYear()+1}"></div>
+        <div class="form-group"><label class="form-label">Due Date</label><input class="form-control" type="date" name="due_date" value="${new Date(Date.now()+30*86400000).toISOString().slice(0,10)}"></div>
+      </div>
+      <div class="form-group"><label class="form-label">Remarks</label><textarea class="form-textarea" name="remarks" placeholder="Tuition fee / Lab fee / Library fee…"></textarea></div>
+    `;
+    const { close } = ERP.modal({
+      title: '➕ Create Invoice', body, size: 'lg',
+      footer: `<button class="btn btn-ghost" id="invCancelBtn">Cancel</button><button class="btn btn-primary" id="invSaveBtn">Create Invoice</button>`
+    });
+    document.getElementById('invCancelBtn').addEventListener('click', close);
+    document.getElementById('invSaveBtn').addEventListener('click', () => submitInvoice(close));
+  }
+  async function submitInvoice(closeFn) {
+    const modalBody = document.querySelector('.modal-overlay .modal-body');
+    const data = {};
+    modalBody.querySelectorAll('[name]').forEach(i => { data[i.name] = i.value; });
+    const btn = document.getElementById('invSaveBtn');
+    btn.disabled = true; btn.textContent = 'Creating…';
+    try {
+      const res = await ERP.api('/api/admin/fees/invoice', { method: 'POST', body: data });
+      ERP.toast('Success', res.message || 'Invoice created.', 'success');
+      setTimeout(() => location.reload(), 700);
+    } catch (err) { ERP.toast('Error', err.message, 'error'); btn.disabled = false; btn.textContent = 'Create Invoice'; }
+  }
+  function exportInvoices() {
+    const rows = <%- JSON.stringify(invoices.map(i => ({inv:i.invoice_number, student:i.full_name, roll:i.roll_number, course:i.course_code, sem:i.semester, total:i.total_amount, paid:i.paid_amount||0, due:i.due_date, status:i.status}))) %>;
+    const csv = ['Invoice,Student,Roll,Course,Sem,Total,Paid,DueDate,Status'].concat(rows.map(r => [r.inv,r.student,r.roll,r.course,r.sem,r.total,r.paid,r.due,r.status].map(x => `"${x}"`).join(','))).join('\n');
+    const blob = new Blob([csv], {type:'text/csv'}); const a = document.createElement('a');
+    a.href = URL.createObjectURL(blob); a.download = 'invoices.csv'; a.click();
+    ERP.toast('Exported', 'invoices.csv downloaded.', 'success');
+  }
+</script>
+<%- include('../partials/layout-bottom') %>

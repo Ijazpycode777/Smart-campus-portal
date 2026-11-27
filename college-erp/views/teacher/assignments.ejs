@@ -1,0 +1,171 @@
+<%- include('../partials/layout-top') %>
+<%
+  const now = new Date();
+  const totalSubs = assignments.reduce((a, x) => a + (x.submissions_count || 0), 0);
+  const totalExp = assignments.reduce((a, x) => a + (x.total_students || 0), 0);
+  const pendingCount = assignments.filter(a => {
+    const due = new Date(a.due_date);
+    const subs = a.submissions_count || 0;
+    return (subs < (a.total_students || 0)) && due >= now;
+  }).length;
+  const gradedCount = assignments.filter(a => (a.submissions_count || 0) >= (a.total_students || 0) && (a.total_students || 0) > 0).length;
+%>
+
+<div class="page-head">
+  <div>
+    <div class="crumbs"><a href="/teacher">Dashboard</a> / Assignments</div>
+    <h1>Assignments</h1>
+  </div>
+  <button class="btn btn-primary" onclick="openCreateAssign()">➕ Create Assignment</button>
+</div>
+
+<div class="stats-grid">
+  <div class="stat-card slide-up">
+    <div class="stat-icon brand">📁</div>
+    <div style="flex:1">
+      <div class="stat-label">Total Assignments</div>
+      <div class="stat-value"><%= assignments.length %></div>
+      <div class="stat-delta up">▲ Created by you</div>
+    </div>
+  </div>
+  <div class="stat-card slide-up" style="animation-delay:.05s">
+    <div class="stat-icon amber">⏳</div>
+    <div style="flex:1">
+      <div class="stat-label">Pending Submissions</div>
+      <div class="stat-value"><%= pendingCount %></div>
+      <div class="stat-delta up">▲ Awaiting submissions</div>
+    </div>
+  </div>
+  <div class="stat-card slide-up" style="animation-delay:.1s">
+    <div class="stat-icon green">✅</div>
+    <div style="flex:1">
+      <div class="stat-label">Fully Submitted</div>
+      <div class="stat-value"><%= gradedCount %></div>
+      <div class="stat-delta up">▲ All students in</div>
+    </div>
+  </div>
+  <div class="stat-card slide-up" style="animation-delay:.15s">
+    <div class="stat-icon pink">📊</div>
+    <div style="flex:1">
+      <div class="stat-label">Total Submissions</div>
+      <div class="stat-value"><%= totalSubs %></div>
+      <div class="stat-delta up">▲ Of <%= totalExp %> expected</div>
+    </div>
+  </div>
+</div>
+
+<div class="card">
+  <div class="card-header">
+    <div>
+      <div class="card-title">All Assignments</div>
+      <div class="text-xs text-muted"><%= assignments.length %> assignments</div>
+    </div>
+  </div>
+  <div class="card-body">
+    <% if (!assignments.length) { %>
+      <div class="empty"><div class="empty-icon">📁</div><div class="empty-title">No assignments yet</div><div class="empty-sub">Create your first assignment using the button above.</div></div>
+    <% } else { %>
+      <div class="grid" style="grid-template-columns:repeat(auto-fill,minmax(340px,1fr));gap:16px">
+        <% assignments.forEach(a => {
+          const overdue = new Date(a.due_date) < now && (a.submissions_count || 0) < (a.total_students || 0);
+          const subRate = a.total_students ? Math.round((a.submissions_count || 0) / a.total_students * 100) : 0;
+        %>
+          <div class="stat-card" style="display:block;padding:18px">
+            <div style="display:flex;align-items:flex-start;gap:10px">
+              <div class="stat-icon brand" style="width:36px;height:36px;font-size:16px">📄</div>
+              <div style="flex:1;min-width:0">
+                <div style="font-weight:800;font-size:14px" class="truncate"><%= a.title %></div>
+                <div class="text-xs text-muted truncate" style="margin-top:2px"><%= a.subject_code %> · <%= a.class_name %></div>
+              </div>
+            </div>
+            <div style="font-size:12px;color:var(--gray-600);margin:10px 0;line-height:1.5" class="truncate-2"><%= (a.description || '').slice(0, 110) %><% if ((a.description||'').length > 110) { %>…<% } %></div>
+            <div style="display:flex;align-items:center;justify-content:space-between;margin:10px 0;padding:8px;background:var(--surface-2);border-radius:8px">
+              <div>
+                <div class="text-xs text-muted">Due Date</div>
+                <div style="font-weight:700;font-size:13px;color:<%= overdue ? 'var(--danger)' : 'var(--gray-900)' %>"><%= helpers.formatDate(a.due_date) %></div>
+              </div>
+              <span class="badge <%= overdue ? 'badge-danger' : 'badge-warning' %>"><%= overdue ? 'OVERDUE' : 'Active' %></span>
+            </div>
+            <div style="display:flex;align-items:center;justify-content:space-between;margin-top:10px">
+              <div style="display:flex;align-items:center;gap:6px">
+                <svg data-ring="<%= subRate %>" data-ring-color="<%= subRate >= 75 ? '#10b981' : subRate >= 50 ? '#f59e0b' : '#ef4444' %>" data-ring-size="36" style="width:36px;height:36px"></svg>
+                <div>
+                  <div class="text-xs text-muted">Submissions</div>
+                  <div style="font-weight:700;font-size:13px"><%= a.submissions_count || 0 %>/<%= a.total_students || 0 %></div>
+                </div>
+              </div>
+              <a class="btn btn-primary btn-sm" href="/teacher/assignments/<%= a.id %>">View Submissions →</a>
+            </div>
+          </div>
+        <% }) %>
+      </div>
+    <% } %>
+  </div>
+</div>
+
+<!-- Create Assignment Modal -->
+<div class="modal-overlay hidden" id="createAssignModal" style="display:none">
+  <div class="modal modal-lg">
+    <div class="modal-header">
+      <div class="modal-title">➕ Create New Assignment</div>
+      <button class="icon-btn" onclick="document.getElementById('createAssignModal').style.display='none'">×</button>
+    </div>
+    <form id="createAssignForm" onsubmit="submitAssign(event)">
+      <div class="modal-body">
+        <div class="form-group">
+          <label class="form-label">Title <span class="req">*</span></label>
+          <input class="form-control" name="title" placeholder="e.g. Data Structures Lab Assignment 3" required>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Description</label>
+          <textarea class="form-textarea" name="description" rows="3" placeholder="Assignment brief & instructions"></textarea>
+        </div>
+        <div class="form-row">
+          <div class="form-group">
+            <label class="form-label">Class & Subject <span class="req">*</span></label>
+            <select class="form-select" name="class_subject" required>
+              <% myClasses.forEach(c => { %>
+                <option value="<%= c.id %>|<%= c.subject_id %>"><%= c.name %> — <%= c.subject_code %></option>
+              <% }) %>
+            </select>
+          </div>
+          <div class="form-group">
+            <label class="form-label">Due Date <span class="req">*</span></label>
+            <input class="form-control" type="date" name="due_date" required>
+          </div>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Total Marks <span class="req">*</span></label>
+          <input class="form-control" type="number" name="total_marks" value="100" min="1" required>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-ghost" onclick="document.getElementById('createAssignModal').style.display='none'">Cancel</button>
+        <button type="submit" class="btn btn-primary">Create Assignment</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<script>
+  function openCreateAssign() { document.getElementById('createAssignModal').style.display = 'flex'; }
+  async function submitAssign(e) {
+    e.preventDefault();
+    const fd = new FormData(e.target);
+    const cs = fd.get('class_subject').split('|');
+    const body = {
+      title: fd.get('title'),
+      description: fd.get('description'),
+      class_id: parseInt(cs[0]),
+      subject_id: parseInt(cs[1]),
+      due_date: fd.get('due_date'),
+      total_marks: parseInt(fd.get('total_marks'))
+    };
+    try {
+      const res = await ERP.api('/api/teacher/assignments', { method: 'POST', body });
+      ERP.toast('Created', res.message || 'Assignment created successfully.', 'success');
+      setTimeout(() => location.reload(), 800);
+    } catch (err) { ERP.toast('Error', err.message, 'error'); }
+  }
+</script>
+<%- include('../partials/layout-bottom') %>

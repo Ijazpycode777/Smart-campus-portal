@@ -1,0 +1,172 @@
+<%- include('../partials/layout-top') %>
+<%
+  const s = settings || {};
+  const currencies = [
+    { code: '₹', label: '₹ Indian Rupee (INR)' },
+    { code: '$', label: '$ US Dollar (USD)' },
+    { code: '€', label: '€ Euro (EUR)' },
+    { code: '£', label: '£ British Pound (GBP)' },
+    { code: '¥', label: '¥ Japanese Yen (JPY)' },
+    { code: '₦', label: '₦ Nigerian Naira (NGN)' },
+    { code: 'R', label: 'R South African Rand (ZAR)' }
+  ];
+%>
+
+<div class="hero-banner fade-in">
+  <div style="position:relative">
+    <div style="font-size:11px;opacity:.85;text-transform:uppercase;letter-spacing:.1em;font-weight:600">Configuration</div>
+    <h1>System Settings</h1>
+    <p>Manage institution-wide configuration for <%= collegeName %> — branding, academic year and currency preferences.</p>
+    <div class="hero-stat">
+      <div class="num"><%= Object.keys(s).length %></div>
+      <div class="lbl">Settings Keys</div>
+    </div>
+  </div>
+</div>
+
+<div class="stats-grid">
+  <div class="stat-card slide-up">
+    <div class="stat-icon brand">🏛️</div>
+    <div style="flex:1">
+      <div class="stat-label">Institution</div>
+      <div class="stat-value" style="font-size:18px;line-height:1.2"><%= s.college_name || collegeName %></div>
+      <div class="stat-delta up">▲ Configured</div>
+    </div>
+  </div>
+  <div class="stat-card slide-up" style="animation-delay:.05s">
+    <div class="stat-icon green">📚</div>
+    <div style="flex:1">
+      <div class="stat-label">Academic Year</div>
+      <div class="stat-value"><%= s.academic_year || academicYear %></div>
+      <div class="stat-delta up">▲ Active session</div>
+    </div>
+  </div>
+  <div class="stat-card slide-up" style="animation-delay:.1s">
+    <div class="stat-icon amber">💰</div>
+    <div style="flex:1">
+      <div class="stat-label">Currency</div>
+      <div class="stat-value"><%= s.currency_symbol || currencySymbol %></div>
+      <div class="stat-delta up">▲ Used in finance</div>
+    </div>
+  </div>
+  <div class="stat-card slide-up" style="animation-delay:.15s">
+    <div class="stat-icon pink">🏷️</div>
+    <div style="flex:1">
+      <div class="stat-label">Short Name</div>
+      <div class="stat-value"><%= s.college_short_name || collegeShortName %></div>
+      <div class="stat-delta up">▲ Branding label</div>
+    </div>
+  </div>
+</div>
+
+<form id="settingsForm" style="display:grid;gap:16px">
+  <div class="card">
+    <div class="card-header">
+      <div>
+        <div class="card-title">🏛️ Institution Information</div>
+        <div class="text-xs text-muted">Basic identity and branding for your college</div>
+      </div>
+      <span class="badge badge-info">Section 1</span>
+    </div>
+    <div class="card-body">
+      <div class="form-group">
+        <label class="form-label">College Full Name <span class="req">*</span></label>
+        <input class="form-control" name="college_name" value="<%= s.college_name || collegeName %>" required>
+        <div class="form-hint">Displayed in the sidebar, page titles and reports.</div>
+      </div>
+      <div class="form-row">
+        <div class="form-group">
+          <label class="form-label">Short Name</label>
+          <input class="form-control" name="college_short_name" value="<%= s.college_short_name || collegeShortName %>" maxlength="12">
+          <div class="form-hint">Abbreviated name (e.g. NIST, IIT-D).</div>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Tagline</label>
+          <input class="form-control" name="college_tagline" value="<%= s.college_tagline || collegeTagline %>" placeholder="Knowledge is Power">
+          <div class="form-hint">Shown beneath the brand name.</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="card-header">
+      <div>
+        <div class="card-title">📅 Academic Year</div>
+        <div class="text-xs text-muted">Active session configuration</div>
+      </div>
+      <span class="badge badge-info">Section 2</span>
+    </div>
+    <div class="card-body">
+      <div class="form-row">
+        <div class="form-group">
+          <label class="form-label">Current Academic Year <span class="req">*</span></label>
+          <input class="form-control" name="academic_year" value="<%= s.academic_year || academicYear %>" placeholder="2026-2027" pattern="\d{4}-\d{4}" required>
+          <div class="form-hint">Format: YYYY-YYYY (e.g. 2026-2027)</div>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Academic Year Preview</label>
+          <div style="padding:11px 12px;background:var(--brand-50);border:1px dashed var(--brand-300);border-radius:var(--r-md);font-size:14px;color:var(--brand-700);font-weight:600">
+            <span id="ayPreview"><%= s.academic_year || academicYear %></span> · <span style="color:var(--gray-600)">AY for invoices, exams, classes</span>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="card-header">
+      <div>
+        <div class="card-title">💱 Currency Configuration</div>
+        <div class="text-xs text-muted">Used across all financial reports and invoices</div>
+      </div>
+      <span class="badge badge-info">Section 3</span>
+    </div>
+    <div class="card-body">
+      <div class="form-row">
+        <div class="form-group">
+          <label class="form-label">Currency Symbol <span class="req">*</span></label>
+          <select class="form-select" name="currency_symbol" id="currencySelect">
+            <% currencies.forEach(c => { %>
+              <option value="<%= c.code %>" <%= (s.currency_symbol || currencySymbol) === c.code ? 'selected' : '' %>><%= c.label %></option>
+            <% }) %>
+          </select>
+          <div class="form-hint">Choose the symbol used in fees, payments and reports.</div>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Live Preview</label>
+          <div style="padding:11px 12px;background:var(--surface-2);border-radius:var(--r-md);font-size:16px;font-weight:700;color:var(--gray-900)">
+            <span id="currencyPreview"><%= s.currency_symbol || currencySymbol %></span> 50,000.00
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div style="display:flex;justify-content:flex-end;gap:10px;position:sticky;bottom:0;background:var(--bg);padding:14px 0;margin:0 -4px">
+    <button type="reset" class="btn btn-ghost">Reset</button>
+    <button type="button" class="btn btn-primary" id="saveSettingsBtn" onclick="saveSettings()">💾 Save Settings</button>
+  </div>
+</form>
+
+<script>
+  const currencySelect = document.getElementById('currencySelect');
+  const currencyPreview = document.getElementById('currencyPreview');
+  const ayInput = document.querySelector('input[name="academic_year"]');
+  const ayPreview = document.getElementById('ayPreview');
+  currencySelect.addEventListener('change', () => { currencyPreview.textContent = currencySelect.value; });
+  ayInput.addEventListener('input', () => { ayPreview.textContent = ayInput.value || '—'; });
+  async function saveSettings() {
+    const form = document.getElementById('settingsForm');
+    const data = {};
+    form.querySelectorAll('[name]').forEach(i => { data[i.name] = i.value; });
+    const btn = document.getElementById('saveSettingsBtn');
+    btn.disabled = true; btn.textContent = 'Saving…';
+    try {
+      const res = await ERP.api('/api/admin/settings', { method: 'PUT', body: data });
+      ERP.toast('Settings Saved', res.message || 'Institution settings updated successfully.', 'success');
+      setTimeout(() => location.reload(), 1200);
+    } catch (err) { ERP.toast('Error', err.message, 'error'); btn.disabled = false; btn.textContent = '💾 Save Settings'; }
+  }
+</script>
+<%- include('../partials/layout-bottom') %>

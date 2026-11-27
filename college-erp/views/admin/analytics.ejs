@@ -1,0 +1,232 @@
+<%- include('../partials/layout-top') %>
+<%
+  const deptColors = ['#6366f1','#ec4899','#f59e0b','#10b981','#3b82f6','#8b5cf6','#06b6d4','#f97316','#14b8a6'];
+  const totalStudents = deptDist.reduce((a, d) => a + (d.students || 0), 0);
+  const totalCollected = feeColl.reduce((a, f) => a + (f.total || 0), 0);
+  const totalGrowth = studentGrowth.reduce((a, g) => a + (g.count || 0), 0);
+  const attTotal = (attendanceStats.total || 0);
+  const attPct = attTotal ? Math.round((attendanceStats.present / attTotal) * 100) : 0;
+  const gradeColors = { 'A+':'#10b981', 'A':'#22c55e', 'B+':'#3b82f6', 'B':'#06b6d4', 'C+':'#f59e0b', 'C':'#f97316', 'D':'#fb923c', 'F':'#ef4444' };
+  const gradeData = (gradeDist || []).map(g => ({ label: g.grade, value: g.count, color: gradeColors[g.grade] || '#6366f1' }));
+  const genderColors = ['#3b82f6','#ec4899','#8b5cf6','#10b981'];
+  const genderData = (genderDist || []).map((g, i) => ({ label: g.gender, value: g.count, color: genderColors[i % genderColors.length] }));
+  const enrollData = (courseEnroll || []).map(c => ({ label: c.code, value: c.students }));
+  const topStudentsList = (topStudents || []).slice().sort((a, b) => (b.avg_pct || 0) - (a.avg_pct || 0));
+%>
+
+<div class="hero-banner fade-in">
+  <div style="position:relative">
+    <div style="font-size:11px;opacity:.85;text-transform:uppercase;letter-spacing:.1em;font-weight:600">Deep Analytics</div>
+    <h1>Analytics & Insights</h1>
+    <p>A complete data-driven view of <%= collegeName %>'s performance — enrollment, finance, attendance and academic outcomes.</p>
+    <div class="hero-stat">
+      <div class="num"><%= totalStudents %></div>
+      <div class="lbl">Total Students</div>
+    </div>
+  </div>
+</div>
+
+<div class="stats-grid">
+  <div class="stat-card slide-up">
+    <div class="stat-icon brand">🎓</div>
+    <div style="flex:1">
+      <div class="stat-label">Total Students</div>
+      <div class="stat-value"><%= totalStudents %></div>
+      <div class="stat-delta up">▲ Across <%= deptDist.length %> departments</div>
+    </div>
+  </div>
+  <div class="stat-card slide-up" style="animation-delay:.05s">
+    <div class="stat-icon green">💰</div>
+    <div style="flex:1">
+      <div class="stat-label">Fees Collected</div>
+      <div class="stat-value"><%= helpers.formatCurrency(totalCollected) %></div>
+      <div class="stat-delta up">▲ Over <%= feeColl.length %> months</div>
+    </div>
+  </div>
+  <div class="stat-card slide-up" style="animation-delay:.1s">
+    <div class="stat-icon amber">📈</div>
+    <div style="flex:1">
+      <div class="stat-label">Attendance Rate</div>
+      <div class="stat-value"><%= attPct %>%</div>
+      <div class="stat-delta up">▲ Present of <%= attTotal %> records</div>
+    </div>
+  </div>
+  <div class="stat-card slide-up" style="animation-delay:.15s">
+    <div class="stat-icon pink">🚀</div>
+    <div style="flex:1">
+      <div class="stat-label">Total Admissions</div>
+      <div class="stat-value"><%= totalGrowth %></div>
+      <div class="stat-delta up">▲ Across all batches</div>
+    </div>
+  </div>
+</div>
+
+<!-- Row 1: Department Distribution & Fee Collection -->
+<div class="charts-grid">
+  <div class="card">
+    <div class="card-header">
+      <div>
+        <div class="card-title">Department Distribution</div>
+        <div class="text-xs text-muted">Student count by department</div>
+      </div>
+      <span class="badge badge-purple"><%= deptDist.length %> depts</span>
+    </div>
+    <div class="card-body">
+      <canvas data-chart="donut" data-data='<%= JSON.stringify(deptDist.map((d,i)=>({label:d.code, value:d.students, color:deptColors[i%deptColors.length]}))) %>' data-opts='<%= JSON.stringify({ centerLabel: "Students", centerValue: totalStudents }) %>' style="width:100%;height:240px"></canvas>
+      <div style="margin-top:16px;display:grid;grid-template-columns:1fr 1fr;gap:6px">
+        <% deptDist.forEach((d, i) => { %>
+          <div style="display:flex;align-items:center;gap:6px;font-size:11px;padding:6px 8px;background:var(--surface-2);border-radius:6px">
+            <span style="width:8px;height:8px;border-radius:50%;background:<%= deptColors[i%deptColors.length] %>"></span>
+            <span style="color:var(--gray-600);font-weight:600"><%= d.code %></span>
+            <span style="margin-left:auto;font-weight:700"><%= d.students %></span>
+          </div>
+        <% }) %>
+      </div>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="card-header">
+      <div>
+        <div class="card-title">Fee Collection Trend</div>
+        <div class="text-xs text-muted">Last 6 months (in <%= currencySymbol %> thousands)</div>
+      </div>
+      <span class="badge badge-success badge-dot">Live</span>
+    </div>
+    <div class="card-body">
+      <canvas data-chart="line" data-data='<%= JSON.stringify(feeColl.map(f => ({ label: f.month, value: Math.round((f.total || 0) / 1000) }))) %>' style="width:100%;height:240px"></canvas>
+      <div style="display:flex;justify-content:space-between;margin-top:12px;padding-top:12px;border-top:1px solid var(--border);flex-wrap:wrap;gap:8px">
+        <div><div class="text-xs text-muted">Total</div><div style="font-weight:800;color:var(--success);font-size:16px"><%= helpers.formatCurrency(totalCollected) %></div></div>
+        <div><div class="text-xs text-muted">Avg / Mo</div><div style="font-weight:800;color:var(--brand-600);font-size:16px"><%= helpers.formatCurrency(Math.round(totalCollected / Math.max(feeColl.length,1))) %></div></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Row 2: Student Growth, Attendance, Grade Distribution -->
+<div class="charts-grid-3">
+  <div class="card">
+    <div class="card-header"><div class="card-title">Student Growth</div><span class="badge badge-info">By Batch</span></div>
+    <div class="card-body">
+      <canvas data-chart="bar" data-data='<%= JSON.stringify(studentGrowth.map(s => ({ label: String(s.batch_year), value: s.count }))) %>' data-opts='<%= JSON.stringify({ showValues: true }) %>' style="width:100%;height:200px"></canvas>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="card-header"><div class="card-title">Attendance</div><span class="badge badge-success"><%= attPct %>%</span></div>
+    <div class="card-body">
+      <canvas data-chart="donut" data-data='<%= JSON.stringify([
+        { label: 'Present', value: attendanceStats.present || 0, color: '#10b981' },
+        { label: 'Absent', value: attendanceStats.absent || 0, color: '#ef4444' },
+        { label: 'Late', value: attendanceStats.late || 0, color: '#f59e0b' }
+      ]) %>' data-opts='<%= JSON.stringify({ centerLabel: "Records", centerValue: attTotal }) %>' style="width:100%;height:200px"></canvas>
+      <div style="display:flex;justify-content:space-around;margin-top:10px;font-size:11px">
+        <div style="text-align:center"><div style="font-weight:800;color:var(--success)"><%= attendanceStats.present || 0 %></div><div class="text-muted">Present</div></div>
+        <div style="text-align:center"><div style="font-weight:800;color:var(--danger)"><%= attendanceStats.absent || 0 %></div><div class="text-muted">Absent</div></div>
+        <div style="text-align:center"><div style="font-weight:800;color:var(--warning)"><%= attendanceStats.late || 0 %></div><div class="text-muted">Late</div></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="card-header"><div class="card-title">Grade Distribution</div><span class="badge badge-purple">A-F</span></div>
+    <div class="card-body">
+      <% if (gradeData.length) { %>
+        <canvas data-chart="bar" data-data='<%= JSON.stringify(gradeData) %>' data-opts='<%= JSON.stringify({ showValues: true, colors: gradeData.map(g => g.color) }) %>' style="width:100%;height:200px"></canvas>
+      <% } else { %>
+        <div class="empty" style="padding:30px 10px"><div class="empty-icon">📊</div><div class="empty-sub">No grade data available</div></div>
+      <% } %>
+    </div>
+  </div>
+</div>
+
+<!-- Row 3: Gender & Course Enrollment -->
+<div class="charts-grid">
+  <div class="card">
+    <div class="card-header">
+      <div class="card-title">Gender Distribution</div>
+      <span class="badge badge-info">Demographics</span>
+    </div>
+    <div class="card-body">
+      <% if (genderData.length) { %>
+        <canvas data-chart="donut" data-data='<%= JSON.stringify(genderData) %>' data-opts='<%= JSON.stringify({ centerLabel: "Students" }) %>' style="width:100%;height:220px"></canvas>
+        <div style="margin-top:12px;display:flex;justify-content:center;gap:14px;flex-wrap:wrap">
+          <% genderData.forEach((g, i) => { %>
+            <div style="display:flex;align-items:center;gap:6px;font-size:12px"><span style="width:10px;height:10px;border-radius:3px;background:<%= g.color %>"></span><%= g.label %>: <strong><%= g.value %></strong></div>
+          <% }) %>
+        </div>
+      <% } else { %>
+        <div class="empty"><div class="empty-icon">👥</div><div class="empty-sub">No demographic data available.</div></div>
+      <% } %>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="card-header">
+      <div class="card-title">Course Enrollment</div>
+      <span class="badge badge-purple">Top Programs</span>
+    </div>
+    <div class="card-body">
+      <% if (enrollData.length) { %>
+        <canvas data-chart="bar" data-data='<%= JSON.stringify(enrollData) %>' data-opts='<%= JSON.stringify({ showValues: true, colors: ['#8b5cf6'] }) %>' style="width:100%;height:220px"></canvas>
+        <div style="margin-top:12px;display:grid;gap:6px">
+          <% courseEnroll.slice(0, 5).forEach(c => { %>
+            <div style="display:flex;justify-content:space-between;font-size:12px;padding:6px 10px;background:var(--surface-2);border-radius:6px">
+              <span><strong style="font-family:var(--font-mono)"><%= c.code %></strong> <span class="text-muted"><%= c.name %></span></span>
+              <strong><%= c.students %></strong>
+            </div>
+          <% }) %>
+        </div>
+      <% } else { %>
+        <div class="empty"><div class="empty-icon">📚</div><div class="empty-sub">No enrollment data available.</div></div>
+      <% } %>
+    </div>
+  </div>
+</div>
+
+<!-- Row 4: Top Students Leaderboard -->
+<div class="card">
+  <div class="card-header">
+    <div>
+      <div class="card-title">🏆 Top Students Leaderboard</div>
+      <div class="text-xs text-muted">Ranked by overall average percentage across all subjects</div>
+    </div>
+    <span class="badge badge-success"><%= topStudentsList.length %> students</span>
+  </div>
+  <div class="table-wrap">
+    <table class="data-table">
+      <thead><tr><th>Rank</th><th>Student</th><th>Roll No</th><th>Average %</th><th>Performance</th><th>Action</th></tr></thead>
+      <tbody>
+        <% if (!topStudentsList.length) { %>
+          <tr><td colspan="6"><div class="empty"><div class="empty-icon">🏆</div><div class="empty-title">No top students yet</div><div class="empty-sub">Student performance data will appear here after results are recorded.</div></div></td></tr>
+        <% } %>
+        <% topStudentsList.slice(0, 15).forEach((s, i) => {
+          const medal = i === 0 ? '🥇' : i === 1 ? '🥈' : i === 2 ? '🥉' : (i + 1);
+          const pct = s.avg_pct || 0;
+        %>
+          <tr>
+            <td><strong style="font-size:16px"><%= medal %></strong></td>
+            <td>
+              <div style="display:flex;align-items:center;gap:10px">
+                <div class="avatar avatar-sm" style="background:<%= s.avatar_color %>"><%= helpers.initials(s.full_name) %></div>
+                <div style="font-weight:600;color:var(--gray-900)"><%= s.full_name %></div>
+              </div>
+            </td>
+            <td><strong style="font-family:var(--font-mono)"><%= s.roll_number %></strong></td>
+            <td><strong style="font-size:15px;color:<%= pct >= 75 ? 'var(--success)' : pct >= 50 ? 'var(--warning)' : 'var(--danger)' %>"><%= pct %>%</strong></td>
+            <td style="min-width:160px">
+              <div style="display:flex;align-items:center;gap:8px">
+                <div style="flex:1;height:6px;background:var(--gray-100);border-radius:3px;overflow:hidden">
+                  <div style="height:100%;width:<%= pct %>%;background:<%= pct >= 75 ? 'var(--success)' : pct >= 50 ? 'var(--warning)' : 'var(--danger)' %>"></div>
+                </div>
+                <span class="text-xs text-muted"><%= pct >= 90 ? 'Excellent' : pct >= 75 ? 'Good' : pct >= 50 ? 'Average' : 'At Risk' %></span>
+              </div>
+            </td>
+            <td><a class="btn btn-ghost btn-sm" href="/admin/students/<%= s.id %>">View →</a></td>
+          </tr>
+        <% }) %>
+      </tbody>
+    </table>
+  </div>
+</div>
+<%- include('../partials/layout-bottom') %>

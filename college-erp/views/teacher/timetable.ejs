@@ -1,0 +1,114 @@
+<%- include('../partials/layout-top') %>
+<%
+  const days = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
+  const dayShort = { Monday: 'Mon', Tuesday: 'Tue', Wednesday: 'Wed', Thursday: 'Thu', Friday: 'Fri', Saturday: 'Sat' };
+  const todayName = new Date().toLocaleDateString('en-US', { weekday: 'long' });
+
+  // Build unique time slots sorted
+  const slotSet = new Set();
+  (timetable || []).forEach(t => slotSet.add(`${t.start_time}-${t.end_time}`));
+  const slots = Array.from(slotSet).sort();
+  const slotLabel = (slot) => {
+    const [s, e] = slot.split('-');
+    return `${s.slice(0,5)} - ${e.slice(0,5)}`;
+  };
+  const entryFor = (day, slot) => (timetable || []).find(t => t.day_of_week === day && `${t.start_time}-${t.end_time}` === slot);
+  const totalClasses = (timetable || []).length;
+  const subjectSet = new Set();
+  (timetable || []).forEach(t => subjectSet.add(t.subject_code));
+%>
+
+<div class="page-head">
+  <div>
+    <div class="crumbs"><a href="/teacher">Dashboard</a> / Timetable</div>
+    <h1>Weekly Timetable</h1>
+  </div>
+  <span class="badge badge-info badge-dot">Today is <%= todayName %></span>
+</div>
+
+<div class="stats-grid">
+  <div class="stat-card slide-up">
+    <div class="stat-icon brand">📅</div>
+    <div style="flex:1">
+      <div class="stat-label">Total Classes / Week</div>
+      <div class="stat-value"><%= totalClasses %></div>
+      <div class="stat-delta up">▲ Scheduled sessions</div>
+    </div>
+  </div>
+  <div class="stat-card slide-up" style="animation-delay:.05s">
+    <div class="stat-icon green">📚</div>
+    <div style="flex:1">
+      <div class="stat-label">Unique Subjects</div>
+      <div class="stat-value"><%= subjectSet.size %></div>
+      <div class="stat-delta up">▲ Across timetable</div>
+    </div>
+  </div>
+  <div class="stat-card slide-up" style="animation-delay:.1s">
+    <div class="stat-icon amber">⏰</div>
+    <div style="flex:1">
+      <div class="stat-label">Time Slots</div>
+      <div class="stat-value"><%= slots.length %></div>
+      <div class="stat-delta up">▲ Distinct periods</div>
+    </div>
+  </div>
+  <div class="stat-card slide-up" style="animation-delay:.15s">
+    <div class="stat-icon pink">🏛️</div>
+    <div style="flex:1">
+      <div class="stat-label">Active Days</div>
+      <div class="stat-value"><%= days.filter(d => (timetable || []).some(t => t.day_of_week === d)).length %></div>
+      <div class="stat-delta up">▲ Out of 6</div>
+    </div>
+  </div>
+</div>
+
+<div class="card">
+  <div class="card-header">
+    <div>
+      <div class="card-title">Weekly Schedule</div>
+      <div class="text-xs text-muted">Monday to Saturday · Highlighted column is today</div>
+    </div>
+  </div>
+  <div class="card-body">
+    <div class="table-wrap">
+      <table class="data-table">
+        <thead>
+          <tr>
+            <th style="min-width:120px">Time</th>
+            <% days.forEach(d => { %>
+              <th style="<%= d === todayName ? 'background:var(--brand-50);color:var(--brand-700)' : '' %>">
+                <%= dayShort[d] %><% if (d === todayName) { %> <span class="badge badge-success" style="margin-left:4px">TODAY</span><% } %>
+              </th>
+            <% }) %>
+          </tr>
+        </thead>
+        <tbody>
+          <% if (!slots.length) { %>
+            <tr><td colspan="7"><div class="empty"><div class="empty-icon">📭</div><div class="empty-title">No timetable entries</div><div class="empty-sub">Your weekly schedule will appear here once set up.</div></div></td></tr>
+          <% } %>
+          <% slots.forEach(slot => { %>
+            <tr>
+              <td style="font-weight:700;background:var(--surface-2);font-size:12px;color:var(--gray-700)"><%= slotLabel(slot) %></td>
+              <% days.forEach(d => {
+                const e = entryFor(d, slot);
+              %>
+                <td style="<%= d === todayName ? 'background:var(--brand-50)' : '' %>">
+                  <% if (e) { %>
+                    <a href="/teacher/classes/<%= e.class_id %>" style="display:block;padding:8px;border-radius:8px;background:linear-gradient(135deg,#eef2ff 0%,#faf5ff 100%);border-left:3px solid #6366f1;text-decoration:none;color:inherit">
+                      <div style="font-weight:700;font-size:12px" class="truncate"><%= e.subject_name %></div>
+                      <div class="text-xs text-muted" style="margin-top:2px"><%= e.subject_code %></div>
+                      <div class="text-xs text-muted" style="margin-top:2px">📍 <%= e.room %></div>
+                      <div class="text-xs" style="margin-top:2px;color:var(--brand-600);font-weight:600" class="truncate"><%= e.class_name %></div>
+                    </a>
+                  <% } else { %>
+                    <div style="padding:8px;color:var(--gray-300);text-align:center;font-size:18px">—</div>
+                  <% } %>
+                </td>
+              <% }) %>
+            </tr>
+          <% }) %>
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>
+<%- include('../partials/layout-bottom') %>

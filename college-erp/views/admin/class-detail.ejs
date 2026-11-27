@@ -1,0 +1,204 @@
+<%- include('../partials/layout-top') %>
+<%
+  const studentCount = students.length;
+  const subjectCount = subjects.length;
+  const presentPct = students.length ? Math.round(students.filter(s => s.last_status === 'present').length / students.length * 100) : 0;
+%>
+
+<div class="hero-banner fade-in">
+  <div style="position:relative">
+    <div style="font-size:11px;opacity:.85;text-transform:uppercase;letter-spacing:.1em;font-weight:600">Class Section · <%= cls.academic_year %></div>
+    <h1><%= cls.name %></h1>
+    <p><%= cls.course_code %> — <%= cls.course_name %> · Section <%= cls.section || '—' %> · Room <%= cls.room || '—' %></p>
+    <div style="display:flex;gap:24px;margin-top:18px;flex-wrap:wrap">
+      <div><div style="font-size:24px;font-weight:800;line-height:1"><%= studentCount %></div><div style="font-size:11px;opacity:.85;text-transform:uppercase;letter-spacing:.06em">Students</div></div>
+      <div><div style="font-size:24px;font-weight:800;line-height:1"><%= subjectCount %></div><div style="font-size:11px;opacity:.85;text-transform:uppercase;letter-spacing:.06em">Subjects</div></div>
+      <div><div style="font-size:24px;font-weight:800;line-height:1"><%= cls.capacity %></div><div style="font-size:11px;opacity:.85;text-transform:uppercase;letter-spacing:.06em">Capacity</div></div>
+      <div><div style="font-size:24px;font-weight:800;line-height:1"><%= presentPct %>%</div><div style="font-size:11px;opacity:.85;text-transform:uppercase;letter-spacing:.06em">Present Today</div></div>
+    </div>
+  </div>
+</div>
+
+<div class="card mb-4">
+  <div class="card-header">
+    <div class="tabs" style="margin:0;border:0">
+      <button class="tab active" data-tab="students">👥 Students <span class="badge badge-neutral" style="margin-left:6px"><%= studentCount %></span></button>
+      <button class="tab" data-tab="subjects">📚 Subjects <span class="badge badge-neutral" style="margin-left:6px"><%= subjectCount %></span></button>
+    </div>
+    <div style="display:flex;gap:8px">
+      <a href="/admin/classes" class="btn btn-ghost btn-sm">← All Classes</a>
+      <button class="btn btn-primary btn-sm" id="enrollBtn">➕ Enroll Student</button>
+    </div>
+  </div>
+</div>
+
+<div id="tab-students" class="tab-panel">
+  <div class="card">
+    <div class="card-header">
+      <div>
+        <div class="card-title">Enrolled Students</div>
+        <div class="text-xs text-muted"><%= studentCount %> of <%= cls.capacity %> seats filled · <%= cls.capacity - studentCount %> seats available</div>
+      </div>
+    </div>
+    <div class="table-wrap">
+      <table class="data-table">
+        <thead><tr><th>#</th><th>Roll No</th><th>Student</th><th>Attendance</th><th>Status</th><th>Actions</th></tr></thead>
+        <tbody>
+          <% if (!students.length) { %>
+            <tr><td colspan="6"><div class="empty"><div class="empty-icon">👥</div><div class="empty-title">No students enrolled</div><div class="empty-sub">Click "Enroll Student" to add students to this class.</div></div></td></tr>
+          <% } %>
+          <% students.forEach((s, i) => {
+            const status = s.last_status || 'unknown';
+            const statusBadge = status === 'present' ? 'badge-success' : status === 'absent' ? 'badge-danger' : status === 'late' ? 'badge-warning' : 'badge-neutral';
+            const statusLabel = status === 'unknown' ? 'No record' : status.charAt(0).toUpperCase() + status.slice(1);
+          %>
+            <tr>
+              <td><strong><%= i + 1 %></strong></td>
+              <td><strong><%= s.roll_number %></strong></td>
+              <td>
+                <div style="display:flex;align-items:center;gap:10px">
+                  <div class="avatar avatar-sm" style="background:<%= s.avatar_color %>"><%= helpers.initials(s.full_name) %></div>
+                  <div>
+                    <div style="font-weight:600;color:var(--gray-900)"><%= s.full_name %></div>
+                    <div class="text-xs text-muted"><%= s.email || '—' %></div>
+                  </div>
+                </div>
+              </td>
+              <td>
+                <% if (s.attendance_pct != null) { %>
+                  <div style="display:flex;align-items:center;gap:8px">
+                    <div style="width:60px;height:6px;background:var(--gray-100);border-radius:3px;overflow:hidden"><div style="height:100%;width:<%= s.attendance_pct %>%;background:<%= s.attendance_pct >= 75 ? 'var(--success)' : 'var(--danger)' %>"></div></div>
+                    <strong><%= s.attendance_pct %>%</strong>
+                  </div>
+                <% } else { %><span class="text-muted">—</span><% } %>
+              </td>
+              <td><span class="badge <%= statusBadge %> badge-dot"><%= statusLabel %></span></td>
+              <td><a class="btn btn-ghost btn-sm" href="/admin/students/<%= s.student_id || s.id %>">View →</a></td>
+            </tr>
+          <% }) %>
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>
+
+<div id="tab-subjects" class="tab-panel" style="display:none">
+  <div class="card">
+    <div class="card-header">
+      <div>
+        <div class="card-title">Subjects Taught</div>
+        <div class="text-xs text-muted"><%= subjectCount %> subjects assigned to this section</div>
+      </div>
+    </div>
+    <div class="table-wrap">
+      <table class="data-table">
+        <thead><tr><th>Code</th><th>Subject</th><th>Assigned Teacher</th><th>Actions</th></tr></thead>
+        <tbody>
+          <% if (!subjects.length) { %>
+            <tr><td colspan="4"><div class="empty"><div class="empty-icon">📚</div><div class="empty-title">No subjects assigned</div><div class="empty-sub">Assign subjects from the Subjects page.</div></div></td></tr>
+          <% } %>
+          <% subjects.forEach(s => { %>
+            <tr>
+              <td><strong style="font-family:var(--font-mono)"><%= s.subject_code %></strong></td>
+              <td>
+                <div style="font-weight:600;color:var(--gray-900)"><%= s.subject_name %></div>
+                <div class="text-xs text-muted">Subject ID: <%= s.subject_id %></div>
+              </td>
+              <td>
+                <% if (s.teacher_name) { %>
+                  <div style="display:flex;align-items:center;gap:8px">
+                    <span class="badge badge-info badge-dot"><%= s.teacher_name %></span>
+                  </div>
+                <% } else { %><span class="badge badge-warning">Unassigned</span><% } %>
+              </td>
+              <td><button class="btn btn-ghost btn-sm" onclick="unassignSubject(<%= s.id %>)">Unassign</button></td>
+            </tr>
+          <% }) %>
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>
+
+<div class="card mt-4">
+  <div class="card-header"><div class="card-title">Class Information</div></div>
+  <div class="card-body">
+    <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:16px">
+      <div><div class="text-xs text-muted">Class Teacher</div><div style="font-weight:600;margin-top:2px"><%= cls.class_teacher_name || 'Not assigned' %></div></div>
+      <div><div class="text-xs text-muted">Course</div><div style="font-weight:600;margin-top:2px"><%= cls.course_code %></div></div>
+      <div><div class="text-xs text-muted">Section</div><div style="font-weight:600;margin-top:2px"><%= cls.section || '—' %></div></div>
+      <div><div class="text-xs text-muted">Room</div><div style="font-weight:600;margin-top:2px"><%= cls.room || '—' %></div></div>
+      <div><div class="text-xs text-muted">Semester</div><div style="font-weight:600;margin-top:2px"><%= cls.semester %></div></div>
+      <div><div class="text-xs text-muted">Academic Year</div><div style="font-weight:600;margin-top:2px"><%= cls.academic_year %></div></div>
+    </div>
+  </div>
+</div>
+
+<script>
+  // Tab switching
+  document.querySelectorAll('.tab[data-tab]').forEach(t => {
+    t.addEventListener('click', () => {
+      document.querySelectorAll('.tab[data-tab]').forEach(x => x.classList.remove('active'));
+      document.querySelectorAll('.tab-panel').forEach(p => p.style.display = 'none');
+      t.classList.add('active');
+      document.getElementById('tab-' + t.dataset.tab).style.display = 'block';
+    });
+  });
+  // Enroll button
+  document.getElementById('enrollBtn').addEventListener('click', openEnroll);
+  async function openEnroll() {
+    const body = `
+      <div class="alert alert-info">Search and select students not yet enrolled in this class.</div>
+      <div class="form-group"><label class="form-label">Search Student</label><input class="form-control" id="enrollSearch" placeholder="Type name or roll number…"></div>
+      <div class="form-group"><label class="form-label">Available Students</label>
+        <select class="form-select" id="enrollSelect" multiple style="min-height:160px"></select>
+        <div class="form-hint">Hold Ctrl/Cmd to select multiple students</div>
+      </div>
+    `;
+    const { close } = ERP.modal({
+      title: '➕ Enroll Student',
+      body, size: 'lg',
+      footer: `<button class="btn btn-ghost" id="enrollCancelBtn">Cancel</button><button class="btn btn-primary" id="enrollSaveBtn">Enroll Selected</button>`
+    });
+    document.getElementById('enrollCancelBtn').addEventListener('click', close);
+    let allUnenrolled = [];
+    const select = document.getElementById('enrollSelect');
+    const search = document.getElementById('enrollSearch');
+    try {
+      select.innerHTML = '<option disabled>Loading students…</option>';
+      const res = await ERP.api('/api/admin/classes/<%= cls.id %>/unenrolled');
+      allUnenrolled = res.students || [];
+      renderOptions(allUnenrolled);
+    } catch (err) {
+      select.innerHTML = '<option disabled>Could not load students — endpoint may be unavailable.</option>';
+    }
+    function renderOptions(list) {
+      if (!list.length) { select.innerHTML = '<option disabled>No unenrolled students found</option>'; return; }
+      select.innerHTML = list.map(s => `<option value="${s.id}">${s.roll_number || s.id} — ${ERP.escapeHtml(s.full_name)}</option>`).join('');
+    }
+    search.addEventListener('input', () => {
+      const q = search.value.toLowerCase();
+      renderOptions(allUnenrolled.filter(s => (s.full_name || '').toLowerCase().includes(q) || String(s.roll_number || '').toLowerCase().includes(q)));
+    });
+    document.getElementById('enrollSaveBtn').addEventListener('click', async () => {
+      const ids = Array.from(select.selectedOptions).map(o => o.value);
+      if (!ids.length) { ERP.toast('Warning', 'Select at least one student.', 'warning'); return; }
+      const btn = document.getElementById('enrollSaveBtn'); btn.disabled = true; btn.textContent = 'Enrolling…';
+      try {
+        const res = await ERP.api('/api/admin/classes/<%= cls.id %>/enroll', { method: 'POST', body: { student_ids: ids } });
+        ERP.toast('Success', res.message || `${ids.length} student(s) enrolled.`, 'success');
+        setTimeout(() => location.reload(), 700);
+      } catch (err) { ERP.toast('Error', err.message, 'error'); btn.disabled = false; btn.textContent = 'Enroll Selected'; }
+    });
+  }
+  async function unassignSubject(id) {
+    ERP.confirmDialog('Unassign Subject', 'Remove this subject from the class?', async () => {
+      try {
+        const res = await ERP.api('/api/admin/classes/<%= cls.id %>/subjects/' + id, { method: 'DELETE' });
+        ERP.toast('Removed', res.message || 'Subject unassigned.', 'success');
+        setTimeout(() => location.reload(), 700);
+      } catch (err) { ERP.toast('Error', err.message, 'error'); }
+    }, { okText: 'Unassign', danger: true });
+  }
+</script>
+<%- include('../partials/layout-bottom') %>

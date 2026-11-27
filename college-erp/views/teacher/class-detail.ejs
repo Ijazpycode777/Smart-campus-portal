@@ -1,0 +1,123 @@
+<%- include('../partials/layout-top') %>
+<%
+  function attPct(s) {
+    if (!s.total_att) return 0;
+    return Math.round((s.present_att / s.total_att) * 100);
+  }
+  const avgPct = students.length ? Math.round(students.reduce((a, s) => a + attPct(s), 0) / students.length) : 0;
+  const firstSubjectId = subjects.length ? subjects[0].subject_id : '';
+%>
+
+<div class="page-head">
+  <div>
+    <div class="crumbs"><a href="/teacher">Dashboard</a> / <a href="/teacher/classes">Classes</a> / <%= cls.name %></div>
+    <h1><%= cls.name %></h1>
+  </div>
+  <div style="display:flex;gap:8px">
+    <a href="/teacher/attendance?class_id=<%= cls.id %>&subject_id=<%= firstSubjectId %>" class="btn btn-primary">📋 Mark Attendance</a>
+  </div>
+</div>
+
+<div class="hero-banner fade-in" style="background:linear-gradient(135deg,#6366f1 0%,#8b5cf6 100%)">
+  <div style="position:relative">
+    <div style="font-size:11px;opacity:.85;text-transform:uppercase;letter-spacing:.1em;font-weight:600">Class Overview</div>
+    <h1><%= cls.name %></h1>
+    <p><%= cls.course_code %> — <%= cls.course_name %> · Semester <%= cls.semester %> · Section <%= cls.section || '—' %></p>
+    <div style="display:flex;gap:24px;flex-wrap:wrap;margin-top:10px">
+      <div><div class="text-xs" style="opacity:.85">Class Teacher</div><div style="font-weight:800;font-size:16px"><%= cls.class_teacher_name || '—' %></div></div>
+      <div><div class="text-xs" style="opacity:.85">Room</div><div style="font-weight:800;font-size:16px"><%= cls.room || '—' %></div></div>
+      <div><div class="text-xs" style="opacity:.85">Students</div><div style="font-weight:800;font-size:16px"><%= students.length %></div></div>
+      <div><div class="text-xs" style="opacity:.85">Subjects</div><div style="font-weight:800;font-size:16px"><%= subjects.length %></div></div>
+    </div>
+  </div>
+</div>
+
+<div class="stats-grid">
+  <div class="stat-card slide-up">
+    <div class="stat-icon brand">👥</div>
+    <div style="flex:1">
+      <div class="stat-label">Total Students</div>
+      <div class="stat-value"><%= students.length %></div>
+      <div class="stat-delta up">▲ Enrolled in class</div>
+    </div>
+  </div>
+  <div class="stat-card slide-up" style="animation-delay:.05s">
+    <div class="stat-icon green">📊</div>
+    <div style="flex:1">
+      <div class="stat-label">Avg Attendance</div>
+      <div class="stat-value"><%= avgPct %>%</div>
+      <div class="stat-delta up">▲ Class-wide rate</div>
+    </div>
+  </div>
+  <div class="stat-card slide-up" style="animation-delay:.1s">
+    <div class="stat-icon amber">📚</div>
+    <div style="flex:1">
+      <div class="stat-label">Subjects Taught</div>
+      <div class="stat-value"><%= subjects.length %></div>
+      <div class="stat-delta up">▲ By you</div>
+    </div>
+  </div>
+</div>
+
+<div class="charts-grid" style="grid-template-columns:1fr 2fr">
+  <div class="card">
+    <div class="card-header">
+      <div class="card-title">Subjects Taught</div>
+    </div>
+    <div class="card-body" style="padding:0">
+      <% if (!subjects.length) { %>
+        <div class="empty"><div class="empty-title">No subjects assigned</div></div>
+      <% } else { %>
+        <div style="max-height:400px;overflow-y:auto">
+          <% subjects.forEach(sub => { %>
+            <div style="display:flex;align-items:center;gap:12px;padding:12px 20px;border-bottom:1px solid var(--border)">
+              <div class="stat-icon violet" style="width:36px;height:36px;font-size:16px">📖</div>
+              <div style="flex:1;min-width:0">
+                <div style="font-weight:600;font-size:13px" class="truncate"><%= sub.subject_name %></div>
+                <div class="text-xs text-muted"><%= sub.subject_code %></div>
+              </div>
+              <a href="/teacher/attendance?class_id=<%= cls.id %>&subject_id=<%= sub.subject_id %>" class="btn btn-ghost btn-sm">Mark →</a>
+            </div>
+          <% }) %>
+        </div>
+      <% } %>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="card-header">
+      <div class="card-title">Student Roster & Attendance</div>
+      <span class="badge badge-info"><%= students.length %> students</span>
+    </div>
+    <div class="table-wrap">
+      <table class="data-table">
+        <thead><tr><th>Roll No</th><th>Student</th><th>Email</th><th>Attendance</th><th>Rate</th></tr></thead>
+        <tbody>
+          <% if (!students.length) { %>
+            <tr><td colspan="5"><div class="empty"><div class="empty-icon">🎓</div><div class="empty-title">No students enrolled</div></div></td></tr>
+          <% } %>
+          <% students.forEach(s => { const p = attPct(s); %>
+            <tr>
+              <td><strong><%= s.roll_number %></strong></td>
+              <td>
+                <div style="display:flex;align-items:center;gap:10px">
+                  <div class="avatar avatar-sm" style="background:<%= s.avatar_color %>"><%= helpers.initials(s.full_name) %></div>
+                  <div style="font-weight:600"><%= s.full_name %></div>
+                </div>
+              </td>
+              <td class="text-muted text-sm"><%= s.email %></td>
+              <td>
+                <div style="display:flex;align-items:center;gap:8px">
+                  <svg data-ring="<%= p %>" data-ring-color="<%= p >= 75 ? '#10b981' : p >= 50 ? '#f59e0b' : '#ef4444' %>" data-ring-size="36" style="width:36px;height:36px"></svg>
+                  <span class="text-xs text-muted"><%= s.present_att %>/<%= s.total_att %></span>
+                </div>
+              </td>
+              <td><span class="badge <%= p >= 75 ? 'badge-success' : p >= 50 ? 'badge-warning' : 'badge-danger' %>"><%= p %>%</span></td>
+            </tr>
+          <% }) %>
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>
+<%- include('../partials/layout-bottom') %>

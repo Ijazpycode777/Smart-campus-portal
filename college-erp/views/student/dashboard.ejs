@@ -1,0 +1,223 @@
+<%- include('../partials/layout-top') %>
+<%
+  const s = stats.student || {};
+  const attPct = stats.attendancePct || 0;
+  const feePct = stats.totalAll ? Math.round((stats.totalPaid / stats.totalAll) * 100) : 0;
+  const todayName = new Date().toLocaleDateString('en-US', { weekday: 'long' });
+  const todayList = todayName === 'Sunday' ? [] : (todayTimetable || []);
+  function gradeColor(g) {
+    if (g === 'A+' || g === 'A') return 'success';
+    if (g === 'B+' || g === 'B') return 'info';
+    if (g === 'C') return 'warning';
+    if (g === 'D') return 'purple';
+    return 'danger';
+  }
+%>
+
+<div class="hero-banner fade-in">
+  <div style="position:relative">
+    <div style="font-size:11px;opacity:.85;text-transform:uppercase;letter-spacing:.1em;font-weight:600">Welcome back, <%= currentUser.fullName.split(' ')[0] %> 👋</div>
+    <h1>Student Dashboard</h1>
+    <p><%= s.course_name || 'Student' %> · <%= s.dept_name || '' %> (<%= s.dept_code || '' %>) · Semester <%= s.current_semester %> · Section <%= s.current_section || '—' %> · Batch <%= s.batch_year || '—' %></p>
+    <div class="hero-stat">
+      <div class="num"><%= s.roll_number || '—' %></div>
+      <div class="lbl">Your Roll Number</div>
+    </div>
+  </div>
+</div>
+
+<div class="stats-grid">
+  <div class="stat-card slide-up">
+    <div class="stat-icon brand">📊</div>
+    <div style="flex:1">
+      <div class="stat-label">Attendance %</div>
+      <div class="stat-value"><%= attPct %>%</div>
+      <div class="stat-delta up">▲ <%= stats.attPresent %>/<%= stats.attTotal %> classes</div>
+    </div>
+    <svg data-ring="<%= attPct %>" data-ring-color="<%= attPct >= 75 ? '#10b981' : attPct >= 50 ? '#f59e0b' : '#ef4444' %>" data-ring-size="48" style="width:48px;height:48px"></svg>
+  </div>
+  <div class="stat-card slide-up" style="animation-delay:.05s">
+    <div class="stat-icon green">🎯</div>
+    <div style="flex:1">
+      <div class="stat-label">Average Marks</div>
+      <div class="stat-value"><%= stats.avgMarks || 0 %>%</div>
+      <div class="stat-delta up">▲ Across <%= stats.resultsCount %> results</div>
+    </div>
+  </div>
+  <div class="stat-card slide-up" style="animation-delay:.1s">
+    <div class="stat-icon amber">📝</div>
+    <div style="flex:1">
+      <div class="stat-label">Results Count</div>
+      <div class="stat-value"><%= stats.resultsCount || 0 %></div>
+      <div class="stat-delta up">▲ Exam results recorded</div>
+    </div>
+  </div>
+  <div class="stat-card slide-up" style="animation-delay:.15s">
+    <div class="stat-icon red">💰</div>
+    <div style="flex:1">
+      <div class="stat-label">Fees Due</div>
+      <div class="stat-value"><%= helpers.formatCurrency(stats.totalDue || 0) %></div>
+      <div class="stat-delta down">▼ Paid <%= helpers.formatCurrency(stats.totalPaid || 0) %></div>
+    </div>
+  </div>
+</div>
+
+<div class="charts-grid" style="grid-template-columns:1.2fr 1fr">
+  <div class="card">
+    <div class="card-header">
+      <div>
+        <div class="card-title">Today's Timetable</div>
+        <div class="text-xs text-muted"><%= todayName %>, <%= helpers.formatDate(new Date()) %></div>
+      </div>
+      <a href="/student/timetable" class="btn btn-ghost btn-sm">Full week →</a>
+    </div>
+    <div class="card-body" style="padding:0">
+      <% if (!todayList.length) { %>
+        <div class="empty"><div class="empty-icon">☕</div><div class="empty-title">No classes today</div><div class="empty-sub">Use the time for self-study.</div></div>
+      <% } else { %>
+        <div style="max-height:340px;overflow-y:auto">
+          <% todayList.forEach((t, i) => { %>
+            <div style="display:flex;gap:14px;padding:14px 20px;border-bottom:1px solid var(--border);align-items:center">
+              <div style="text-align:center;min-width:60px">
+                <div style="font-size:11px;color:var(--gray-500);text-transform:uppercase">Start</div>
+                <div style="font-weight:800;font-size:14px;color:var(--brand-600)"><%= t.start_time.slice(0,5) %></div>
+                <div style="font-size:10px;color:var(--gray-400)">to <%= t.end_time.slice(0,5) %></div>
+              </div>
+              <div style="width:4px;align-self:stretch;background:linear-gradient(180deg,#6366f1,#ec4899);border-radius:4px"></div>
+              <div style="flex:1;min-width:0">
+                <div style="font-weight:700;font-size:14px" class="truncate"><%= t.subject_name %></div>
+                <div class="text-xs text-muted"><%= t.subject_code %> · <%= t.teacher_name %> · Room <%= t.room %></div>
+              </div>
+              <span class="badge badge-info"><%= i + 1 %></span>
+            </div>
+          <% }) %>
+        </div>
+      <% } %>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="card-header">
+      <div class="card-title">Recent Results</div>
+      <a href="/student/results" class="btn btn-ghost btn-sm">All →</a>
+    </div>
+    <div class="card-body" style="padding:0">
+      <div style="max-height:340px;overflow-y:auto">
+        <% if (!recentResults.length) { %>
+          <div class="empty"><div class="empty-icon">📝</div><div class="empty-title">No results yet</div></div>
+        <% } else { %>
+          <% recentResults.forEach(r => { %>
+            <div style="display:flex;align-items:center;gap:12px;padding:12px 20px;border-bottom:1px solid var(--border)">
+              <div style="flex:1;min-width:0">
+                <div style="font-weight:600;font-size:13px" class="truncate"><%= r.exam_name %></div>
+                <div class="text-xs text-muted"><%= r.subject_name %> · <%= r.subject_code %></div>
+              </div>
+              <div style="text-align:right">
+                <div style="font-weight:800;font-size:14px"><%= r.marks_obtained %>/<%= r.total_marks %></div>
+                <span class="badge badge-<%= gradeColor(r.grade) %>"><%= r.grade %></span>
+              </div>
+            </div>
+          <% }) %>
+        <% } %>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="charts-grid" style="grid-template-columns:1fr 1fr">
+  <div class="card">
+    <div class="card-header">
+      <div class="card-title">Upcoming Assignments</div>
+      <a href="/student/assignments" class="btn btn-ghost btn-sm">All →</a>
+    </div>
+    <div class="card-body" style="padding:0">
+      <div style="max-height:300px;overflow-y:auto">
+        <% if (!upcomingAssignments.length) { %>
+          <div class="empty"><div class="empty-icon">📄</div><div class="empty-title">No upcoming assignments</div></div>
+        <% } else { %>
+          <% upcomingAssignments.forEach(a => { const overdue = new Date(a.due_date) < new Date(); %>
+            <div style="display:flex;align-items:center;gap:12px;padding:12px 20px;border-bottom:1px solid var(--border)">
+              <div class="stat-icon amber" style="width:32px;height:32px;font-size:14px">📄</div>
+              <div style="flex:1;min-width:0">
+                <div style="font-weight:600;font-size:13px" class="truncate"><%= a.title %></div>
+                <div class="text-xs text-muted"><%= a.subject_code %> · <%= a.subject_name %> · <%= a.total_marks %> marks</div>
+              </div>
+              <span class="badge <%= overdue ? 'badge-danger' : 'badge-warning' %>"><%= helpers.formatDate(a.due_date) %></span>
+            </div>
+          <% }) %>
+        <% } %>
+      </div>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="card-header">
+      <div class="card-title">Latest Notices</div>
+      <a href="/student/notices" class="btn btn-ghost btn-sm">All →</a>
+    </div>
+    <div class="card-body" style="padding:0">
+      <div style="max-height:300px;overflow-y:auto">
+        <% if (!notices.length) { %>
+          <div class="empty"><div class="empty-icon">📢</div><div class="empty-title">No notices</div></div>
+        <% } else { %>
+          <% notices.forEach(n => { %>
+            <div style="padding:12px 20px;border-bottom:1px solid var(--border)">
+              <div style="display:flex;align-items:center;gap:8px;margin-bottom:4px">
+                <% if (n.priority === 'urgent') { %><span class="badge badge-danger">URGENT</span><% } %>
+                <% if (n.is_pinned) { %><span style="font-size:12px">📌</span><% } %>
+                <strong style="font-size:13px;flex:1" class="truncate"><%= n.title %></strong>
+              </div>
+              <div class="text-xs text-muted truncate"><%= (n.content || '').slice(0, 100) %>…</div>
+              <div class="text-xs text-muted" style="margin-top:4px"><%= helpers.timeAgo(n.created_at) %></div>
+            </div>
+          <% }) %>
+        <% } %>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="charts-grid-3">
+  <div class="card">
+    <div class="card-header"><div class="card-title">Fee Summary</div></div>
+    <div class="card-body" style="display:flex;gap:14px;align-items:center">
+      <svg data-ring="<%= feePct %>" data-ring-color="#10b981" data-ring-size="120" style="width:120px;height:120px;flex-shrink:0"></svg>
+      <div style="flex:1">
+        <div class="text-xs text-muted">Collection Progress</div>
+        <div style="font-size:26px;font-weight:800;color:var(--success)"><%= feePct %>%</div>
+        <div style="margin-top:8px">
+          <div style="display:flex;justify-content:space-between;font-size:12px;margin-bottom:4px"><span style="color:var(--gray-600)">Paid</span><strong style="color:var(--success)"><%= helpers.formatCurrency(stats.totalPaid || 0) %></strong></div>
+          <div style="display:flex;justify-content:space-between;font-size:12px"><span style="color:var(--gray-600)">Due</span><strong style="color:var(--danger)"><%= helpers.formatCurrency(stats.totalDue || 0) %></strong></div>
+        </div>
+        <a href="/student/fees" class="btn btn-primary btn-sm" style="margin-top:10px">Pay Fees →</a>
+      </div>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="card-header"><div class="card-title">Attendance Breakdown</div></div>
+    <div class="card-body">
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
+        <div style="padding:10px;background:var(--surface-2);border-radius:8px;text-align:center"><div class="text-xs text-muted">Present</div><div style="font-weight:800;font-size:18px;color:var(--success)"><%= stats.attPresent || 0 %></div></div>
+        <div style="padding:10px;background:var(--surface-2);border-radius:8px;text-align:center"><div class="text-xs text-muted">Absent</div><div style="font-weight:800;font-size:18px;color:var(--danger)"><%= stats.attAbsent || 0 %></div></div>
+        <div style="padding:10px;background:var(--surface-2);border-radius:8px;text-align:center"><div class="text-xs text-muted">Late</div><div style="font-weight:800;font-size:18px;color:var(--accent-amber)"><%= stats.attLate || 0 %></div></div>
+        <div style="padding:10px;background:var(--surface-2);border-radius:8px;text-align:center"><div class="text-xs text-muted">Total</div><div style="font-weight:800;font-size:18px;color:var(--brand-600)"><%= stats.attTotal || 0 %></div></div>
+      </div>
+      <a href="/student/attendance" class="btn btn-ghost btn-sm btn-block" style="margin-top:10px;justify-content:center">View details →</a>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="card-header"><div class="card-title">Quick Links</div></div>
+    <div class="card-body">
+      <div style="display:grid;gap:8px">
+        <a href="/student/timetable" class="btn btn-ghost btn-block" style="justify-content:flex-start">📅 My Timetable</a>
+        <a href="/student/materials" class="btn btn-ghost btn-block" style="justify-content:flex-start">📚 Study Materials</a>
+        <a href="/student/assignments" class="btn btn-ghost btn-block" style="justify-content:flex-start">📝 Assignments</a>
+        <a href="/student/notifications" class="btn btn-ghost btn-block" style="justify-content:flex-start">🔔 Notifications</a>
+        <a href="/student/leaves" class="btn btn-ghost btn-block" style="justify-content:flex-start">🌴 Apply Leave</a>
+      </div>
+    </div>
+  </div>
+</div>
+<%- include('../partials/layout-bottom') %>

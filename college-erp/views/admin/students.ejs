@@ -1,0 +1,166 @@
+<%- include('../partials/layout-top') %>
+<div class="page-head">
+  <div>
+    <div class="crumbs"><a href="/admin">Dashboard</a> / Students</div>
+    <h1>Students</h1>
+  </div>
+  <div style="display:flex;gap:8px">
+    <button class="btn btn-ghost" onclick="exportStudents()">⬇ Export CSV</button>
+    <button class="btn btn-primary" onclick="openAddStudent()">➕ Add Student</button>
+  </div>
+</div>
+
+<div class="card mb-4">
+  <div class="card-body" style="padding:14px 18px">
+    <form method="GET" style="display:grid;grid-template-columns:2fr 1fr 1fr auto;gap:10px;align-items:end">
+      <div class="form-group" style="margin:0">
+        <label class="form-label">Search</label>
+        <input class="form-control" type="text" name="q" value="<%= q %>" placeholder="Name, roll number or email">
+      </div>
+      <div class="form-group" style="margin:0">
+        <label class="form-label">Course</label>
+        <select class="form-select" name="course_id">
+          <option value="">All courses</option>
+          <% courses.forEach(c => { %><option value="<%= c.id %>" <%= courseId == c.id ? 'selected' : '' %>><%= c.code %> — <%= c.name %></option><% }) %>
+        </select>
+      </div>
+      <div class="form-group" style="margin:0">
+        <label class="form-label">Department</label>
+        <select class="form-select" name="department_id">
+          <option value="">All departments</option>
+          <% departments.forEach(d => { %><option value="<%= d.id %>" <%= deptId == d.id ? 'selected' : '' %>><%= d.code %></option><% }) %>
+        </select>
+      </div>
+      <button class="btn btn-primary" type="submit">🔍 Filter</button>
+    </form>
+  </div>
+</div>
+
+<div class="card">
+  <div class="table-wrap">
+    <table class="data-table">
+      <thead><tr><th>Roll No</th><th>Name</th><th>Email</th><th>Course</th><th>Dept</th><th>Sem/Sec</th><th>Status</th><th>Actions</th></tr></thead>
+      <tbody>
+        <% if (!students.length) { %>
+          <tr><td colspan="8"><div class="empty"><div class="empty-icon">🎓</div><div class="empty-title">No students found</div><div class="empty-sub">Try adjusting your filters or add a new student.</div></div></td></tr>
+        <% } %>
+        <% students.forEach(s => { %>
+          <tr>
+            <td><strong><%= s.roll_number %></strong></td>
+            <td>
+              <div style="display:flex;align-items:center;gap:10px">
+                <div class="avatar avatar-sm" style="background:<%= s.avatar_color %>"><%= helpers.initials(s.full_name) %></div>
+                <div>
+                  <div style="font-weight:600;color:var(--gray-900)"><%= s.full_name %></div>
+                  <div class="text-xs text-muted"><%= s.phone || '—' %></div>
+                </div>
+              </div>
+            </td>
+            <td class="text-muted text-sm"><%= s.email %></td>
+            <td><%= s.course_name || '—' %></td>
+            <td><span class="badge badge-neutral"><%= s.dept_code || '—' %></span></td>
+            <td>Sem <%= s.current_semester %> / <%= s.current_section || '—' %></td>
+            <td><% if (s.is_active) { %><span class="badge badge-success badge-dot">Active</span><% } else { %><span class="badge badge-neutral badge-dot">Inactive</span><% } %></td>
+            <td>
+              <div style="display:flex;gap:4px">
+                <a class="btn btn-ghost btn-sm" href="/admin/students/<%= s.id %>">👁 View</a>
+                <button class="btn btn-ghost btn-sm" onclick="toggleActive(<%= s.user_id || s.id %>)">⏻</button>
+              </div>
+            </td>
+          </tr>
+        <% }) %>
+      </tbody>
+    </table>
+  </div>
+</div>
+
+<!-- Add Student Modal -->
+<div class="modal-overlay hidden" id="addStudentModal" style="display:none">
+  <div class="modal modal-lg">
+    <div class="modal-header">
+      <div class="modal-title">➕ Add New Student</div>
+      <button class="icon-btn" onclick="document.getElementById('addStudentModal').style.display='none'">×</button>
+    </div>
+    <form id="addStudentForm" onsubmit="submitStudent(event)">
+      <div class="modal-body">
+        <div class="form-row">
+          <div class="form-group"><label class="form-label">Full Name <span class="req">*</span></label><input class="form-control" name="full_name" required></div>
+          <div class="form-group"><label class="form-label">Roll Number <span class="req">*</span></label><input class="form-control" name="roll_number" required></div>
+        </div>
+        <div class="form-row">
+          <div class="form-group"><label class="form-label">Username <span class="req">*</span></label><input class="form-control" name="username" required></div>
+          <div class="form-group"><label class="form-label">Email <span class="req">*</span></label><input class="form-control" type="email" name="email" required></div>
+        </div>
+        <div class="form-row">
+          <div class="form-group"><label class="form-label">Phone</label><input class="form-control" name="phone"></div>
+          <div class="form-group"><label class="form-label">Default Password</label><input class="form-control" name="password" value="student123"><div class="form-hint">Leave as default unless setting custom password</div></div>
+        </div>
+        <div class="form-row">
+          <div class="form-group"><label class="form-label">Course</label>
+            <select class="form-select" name="course_id">
+              <% courses.forEach(c => { %><option value="<%= c.id %>"><%= c.code %> — <%= c.name %></option><% }) %>
+            </select>
+          </div>
+          <div class="form-group"><label class="form-label">Department</label>
+            <select class="form-select" name="department_id">
+              <% departments.forEach(d => { %><option value="<%= d.id %>"><%= d.code %> — <%= d.name %></option><% }) %>
+            </select>
+          </div>
+        </div>
+        <div class="form-row">
+          <div class="form-group"><label class="form-label">Semester</label><input class="form-control" type="number" name="current_semester" value="1" min="1" max="8"></div>
+          <div class="form-group"><label class="form-label">Section</label><input class="form-control" name="current_section" placeholder="A / B / C"></div>
+        </div>
+        <div class="form-row">
+          <div class="form-group"><label class="form-label">Gender</label>
+            <select class="form-select" name="gender"><option value="">—</option><option>Male</option><option>Female</option><option>Other</option></select>
+          </div>
+          <div class="form-group"><label class="form-label">Blood Group</label>
+            <select class="form-select" name="blood_group"><option value="">—</option><option>A+</option><option>B+</option><option>O+</option><option>AB+</option><option>A-</option><option>B-</option><option>O-</option><option>AB-</option></select>
+          </div>
+        </div>
+        <div class="form-group"><label class="form-label">Guardian Name & Phone</label>
+          <div class="form-row" style="margin-bottom:0">
+            <input class="form-control" name="guardian_name" placeholder="Guardian name">
+            <input class="form-control" name="guardian_phone" placeholder="Guardian phone">
+          </div>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-ghost" onclick="document.getElementById('addStudentModal').style.display='none'">Cancel</button>
+        <button type="submit" class="btn btn-primary">Create Student</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<script>
+  function openAddStudent() {
+    document.getElementById('addStudentModal').style.display = 'flex';
+  }
+  async function submitStudent(e) {
+    e.preventDefault();
+    const form = e.target;
+    const data = Object.fromEntries(new FormData(form));
+    try {
+      const res = await ERP.api('/api/admin/students', { method: 'POST', body: data });
+      ERP.toast('Student Created', res.message || 'Student created successfully.', 'success');
+      setTimeout(() => location.reload(), 800);
+    } catch (err) { ERP.toast('Error', err.message, 'error'); }
+  }
+  async function toggleActive(userId) {
+    try {
+      await ERP.api('/api/admin/users/' + userId + '/toggle-active', { method: 'POST' });
+      ERP.toast('Updated', 'User status toggled.', 'success');
+      setTimeout(() => location.reload(), 600);
+    } catch (err) { ERP.toast('Error', err.message, 'error'); }
+  }
+  function exportStudents() {
+    const rows = <%= JSON.stringify(students.map(s => ({roll:s.roll_number, name:s.full_name, email:s.email, phone:s.phone||'', course:s.course_name||'', dept:s.dept_code||'', sem:s.current_semester, status:s.is_active?'Active':'Inactive'}))) %>;
+    const csv = ['Roll,Name,Email,Phone,Course,Dept,Semester,Status'].concat(rows.map(r => [r.roll,r.name,r.email,r.phone,r.course,r.dept,r.sem,r.status].map(x => `"${x}"`).join(','))).join('\n');
+    const blob = new Blob([csv], {type:'text/csv'}); const a = document.createElement('a');
+    a.href = URL.createObjectURL(blob); a.download = 'students.csv'; a.click();
+    ERP.toast('Exported', 'students.csv downloaded.', 'success');
+  }
+</script>
+<%- include('../partials/layout-bottom') %>

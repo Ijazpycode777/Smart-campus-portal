@@ -1,0 +1,87 @@
+<%- include('../partials/layout-top') %>
+<%
+  const totalStudents = classes.reduce((a, c) => a + (c.student_count || 0), 0);
+  const avgSize = classes.length ? Math.round(totalStudents / classes.length) : 0;
+%>
+
+<div class="page-head">
+  <div>
+    <div class="crumbs"><a href="/teacher">Dashboard</a> / My Classes</div>
+    <h1>My Classes</h1>
+  </div>
+  <a href="/teacher/timetable" class="btn btn-ghost">📅 View Timetable</a>
+</div>
+
+<div class="stats-grid">
+  <div class="stat-card slide-up">
+    <div class="stat-icon brand">🏫</div>
+    <div style="flex:1">
+      <div class="stat-label">Total Classes</div>
+      <div class="stat-value"><%= classes.length %></div>
+      <div class="stat-delta up">▲ Across your assignments</div>
+    </div>
+  </div>
+  <div class="stat-card slide-up" style="animation-delay:.05s">
+    <div class="stat-icon green">🎓</div>
+    <div style="flex:1">
+      <div class="stat-label">Total Students</div>
+      <div class="stat-value"><%= totalStudents %></div>
+      <div class="stat-delta up">▲ Under your teaching</div>
+    </div>
+  </div>
+  <div class="stat-card slide-up" style="animation-delay:.1s">
+    <div class="stat-icon amber">📊</div>
+    <div style="flex:1">
+      <div class="stat-label">Avg Class Size</div>
+      <div class="stat-value"><%= avgSize %></div>
+      <div class="stat-delta up">▲ Students per class</div>
+    </div>
+  </div>
+</div>
+
+<div class="card">
+  <div class="card-header">
+    <div>
+      <div class="card-title">Class Roster</div>
+      <div class="text-xs text-muted"><%= classes.length %> classes assigned to you</div>
+    </div>
+  </div>
+  <div class="card-body">
+    <% if (!classes.length) { %>
+      <div class="empty"><div class="empty-icon">🏫</div><div class="empty-title">No classes assigned</div><div class="empty-sub">Once assigned by admin, your classes will appear here.</div></div>
+    <% } else { %>
+      <div class="grid" style="grid-template-columns:repeat(auto-fill,minmax(320px,1fr));gap:16px">
+        <% classes.forEach(c => { %>
+          <div class="stat-card" style="display:block;padding:0;overflow:hidden">
+            <div style="background:linear-gradient(135deg,#6366f1 0%,#8b5cf6 100%);padding:18px;color:#fff">
+              <div style="display:flex;align-items:flex-start;gap:10px">
+                <div style="flex:1">
+                  <div style="font-size:11px;opacity:.85;text-transform:uppercase;letter-spacing:.08em">Class</div>
+                  <div style="font-weight:800;font-size:18px;line-height:1.2;margin-top:2px"><%= c.name %></div>
+                </div>
+                <span class="badge" style="background:rgba(255,255,255,.2);color:#fff"><%= c.course_code || '' %></span>
+              </div>
+              <div style="margin-top:10px;font-size:13px;opacity:.95"><%= c.course_name %></div>
+            </div>
+            <div style="padding:16px">
+              <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;font-size:12px">
+                <div><div class="text-xs text-muted">Semester</div><div style="font-weight:700">Sem <%= c.semester || '—' %></div></div>
+                <div><div class="text-xs text-muted">Section</div><div style="font-weight:700"><%= c.section || '—' %></div></div>
+                <div><div class="text-xs text-muted">Class Teacher</div><div style="font-weight:700" class="truncate"><%= c.class_teacher_name || '—' %></div></div>
+                <div><div class="text-xs text-muted">Room</div><div style="font-weight:700"><%= c.room || '—' %></div></div>
+              </div>
+              <div style="display:flex;align-items:center;justify-content:space-between;margin-top:14px;padding-top:14px;border-top:1px solid var(--border)">
+                <div style="display:flex;align-items:center;gap:8px">
+                  <div class="stat-icon blue" style="width:34px;height:34px;font-size:14px">👥</div>
+                  <div><div class="text-xs text-muted">Students</div><div style="font-weight:800;font-size:16px"><%= c.student_count %></div></div>
+                </div>
+                <a class="btn btn-primary btn-sm" href="/teacher/classes/<%= c.id %>">Manage →</a>
+              </div>
+            </div>
+          </div>
+        <% }) %>
+      </div>
+    <% } %>
+  </div>
+</div>
+<%- include('../partials/layout-bottom') %>

@@ -1,0 +1,221 @@
+<%- include('../partials/layout-top') %>
+<%
+  // compute sparkline data for stats
+  function spark(arr) { return JSON.stringify(arr.slice(-7).map(x => x.count || x.total || x.students || 0)); }
+  const deptColors = ['#6366f1','#ec4899','#f59e0b','#10b981','#3b82f6','#8b5cf6','#06b6d4'];
+  const collPct = Math.round((stats.collectedFees / (stats.collectedFees + stats.pendingFees || 1)) * 100);
+%>
+
+<div class="hero-banner fade-in">
+  <div style="position:relative">
+    <div style="font-size:11px;opacity:.85;text-transform:uppercase;letter-spacing:.1em;font-weight:600">Welcome back, <%= currentUser.fullName.split(' ')[0] %> 👋</div>
+    <h1>Admin Control Center</h1>
+    <p>Manage every aspect of <%= collegeName %> — students, faculty, academics and finance — all from one dashboard.</p>
+    <div class="hero-stat">
+      <div class="num"><%= stats.students %></div>
+      <div class="lbl">Active Students</div>
+    </div>
+  </div>
+</div>
+
+<div class="stats-grid">
+  <div class="stat-card slide-up">
+    <div class="stat-icon brand">🎓</div>
+    <div style="flex:1">
+      <div class="stat-label">Total Students</div>
+      <div class="stat-value"><%= stats.students %></div>
+      <div class="stat-delta up">▲ <%= studentGrowth[studentGrowth.length-1] ? studentGrowth[studentGrowth.length-1].count : 0 %> new this batch</div>
+    </div>
+    <canvas data-chart="spark" data-data='<%= spark(studentGrowth) %>' style="width:80px;height:30px;position:relative"></canvas>
+  </div>
+
+  <div class="stat-card slide-up" style="animation-delay:.05s">
+    <div class="stat-icon green">👨‍🏫</div>
+    <div style="flex:1">
+      <div class="stat-label">Faculty Members</div>
+      <div class="stat-value"><%= stats.teachers %></div>
+      <div class="stat-delta up">▲ across <%= stats.departments %> departments</div>
+    </div>
+  </div>
+
+  <div class="stat-card slide-up" style="animation-delay:.1s">
+    <div class="stat-icon amber">💰</div>
+    <div style="flex:1">
+      <div class="stat-label">Fees Collected</div>
+      <div class="stat-value"><%= helpers.formatCurrency(stats.collectedFees) %></div>
+      <div class="stat-delta down">▼ <%= helpers.formatCurrency(stats.pendingFees) %> pending</div>
+    </div>
+  </div>
+
+  <div class="stat-card slide-up" style="animation-delay:.15s">
+    <div class="stat-icon pink">🏫</div>
+    <div style="flex:1">
+      <div class="stat-label">Active Classes</div>
+      <div class="stat-value"><%= stats.classes %></div>
+      <div class="stat-delta up">▲ <%= stats.courses %> courses offered</div>
+    </div>
+  </div>
+</div>
+
+<div class="charts-grid">
+  <div class="card">
+    <div class="card-header">
+      <div>
+        <div class="card-title">Fee Collection Trend</div>
+        <div class="text-xs text-muted">Last 6 months (in ₹ thousands)</div>
+      </div>
+      <span class="badge badge-success badge-dot">Live</span>
+    </div>
+    <div class="card-body">
+      <canvas data-chart="line" data-data='<%= JSON.stringify(feeColl.map(f => ({label: f.month, value: Math.round(f.total/1000)}))) %>' style="width:100%;height:240px"></canvas>
+      <div style="display:flex;justify-content:space-between;margin-top:12px;padding-top:12px;border-top:1px solid var(--border);flex-wrap:wrap;gap:8px">
+        <div><div class="text-xs text-muted">Total Collected</div><div style="font-weight:800;color:var(--success);font-size:16px"><%= helpers.formatCurrency(feeColl.reduce((a,b)=>a+b.total,0)) %></div></div>
+        <div><div class="text-xs text-muted">Avg / Month</div><div style="font-weight:800;color:var(--brand-600);font-size:16px"><%= helpers.formatCurrency(Math.round(feeColl.reduce((a,b)=>a+b.total,0)/feeColl.length)) %></div></div>
+        <div><div class="text-xs text-muted">Best Month</div><div style="font-weight:800;color:var(--accent-amber);font-size:16px"><%= helpers.formatCurrency(Math.max(...feeColl.map(f=>f.total))) %></div></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="card-header">
+      <div>
+        <div class="card-title">Department Distribution</div>
+        <div class="text-xs text-muted">Students per department</div>
+      </div>
+    </div>
+    <div class="card-body" style="text-align:center">
+      <canvas data-chart="donut" data-data='<%= JSON.stringify(deptDist.map((d,i)=>({label:d.code, value:d.students, color:deptColors[i%deptColors.length]}))) %>' data-opts='<%= JSON.stringify({centerLabel: "Students"}) %>' style="width:100%;height:220px"></canvas>
+      <div style="margin-top:16px;display:grid;grid-template-columns:1fr 1fr;gap:8px">
+        <% deptDist.slice(0,6).forEach((d,i) => { %>
+          <div style="display:flex;align-items:center;gap:6px;font-size:11px">
+            <span style="width:8px;height:8px;border-radius:50%;background:<%= deptColors[i%deptColors.length] %>"></span>
+            <span style="color:var(--gray-600)"><%= d.code %></span>
+            <span style="margin-left:auto;font-weight:700"><%= d.students %></span>
+          </div>
+        <% }) %>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="charts-grid-3">
+  <div class="card">
+    <div class="card-header"><div class="card-title">Student Growth</div><span class="badge badge-info">By Batch</span></div>
+    <div class="card-body">
+      <canvas data-chart="bar" data-data='<%= JSON.stringify(studentGrowth.map(s=>({label:String(s.batch_year), value:s.count}))) %>' data-opts='<%= JSON.stringify({showValues:true}) %>' style="width:100%;height:200px"></canvas>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="card-header"><div class="card-title">Fee Status</div></div>
+    <div class="card-body" style="display:flex;gap:14px;align-items:center">
+      <svg data-ring="<%= collPct %>" data-ring-color="#10b981" data-ring-size="120" style="width:120px;height:120px;flex-shrink:0"></svg>
+      <div style="flex:1">
+        <div class="text-xs text-muted">Collection Rate</div>
+        <div style="font-size:26px;font-weight:800;color:var(--success)"><%= collPct %>%</div>
+        <div style="margin-top:8px">
+          <div style="display:flex;justify-content:space-between;font-size:12px;margin-bottom:4px"><span style="color:var(--gray-600)">Collected</span><strong style="color:var(--success)"><%= helpers.formatCurrency(stats.collectedFees) %></strong></div>
+          <div style="display:flex;justify-content:space-between;font-size:12px"><span style="color:var(--gray-600)">Pending</span><strong style="color:var(--danger)"><%= helpers.formatCurrency(stats.pendingFees) %></strong></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="card-header"><div class="card-title">Quick Stats</div></div>
+    <div class="card-body">
+      <div style="display:grid;gap:10px">
+        <div style="display:flex;align-items:center;gap:10px;padding:8px;background:var(--surface-2);border-radius:8px">
+          <span style="font-size:18px">📚</span><div style="flex:1"><div class="text-xs text-muted">Subjects</div><div style="font-weight:700"><%= stats.subjects %></div></div>
+          <span class="badge badge-neutral"><%= stats.courses %> courses</span>
+        </div>
+        <div style="display:flex;align-items:center;gap:10px;padding:8px;background:var(--surface-2);border-radius:8px">
+          <span style="font-size:18px">🏛️</span><div style="flex:1"><div class="text-xs text-muted">Departments</div><div style="font-weight:700"><%= stats.departments %></div></div>
+        </div>
+        <div style="display:flex;align-items:center;gap:10px;padding:8px;background:var(--surface-2);border-radius:8px">
+          <span style="font-size:18px">📢</span><div style="flex:1"><div class="text-xs text-muted">Notices</div><div style="font-weight:700"><%= stats.notices %></div></div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="charts-grid" style="grid-template-columns:1fr 1fr">
+  <div class="card">
+    <div class="card-header">
+      <div class="card-title">Recent Activity</div>
+      <a href="/admin/activity" class="btn btn-ghost btn-sm">View all →</a>
+    </div>
+    <div class="card-body" style="padding:0">
+      <div style="max-height:340px;overflow-y:auto">
+        <% recentActivity.forEach(a => { %>
+          <div style="display:flex;gap:12px;padding:12px 20px;border-bottom:1px solid var(--border)">
+            <div class="avatar avatar-sm" style="background:<%= a.role === 'admin' ? '#6366f1' : a.role === 'teacher' ? '#10b981' : '#ec4899' %>"><%= helpers.initials(a.full_name || '?') %></div>
+            <div style="flex:1;min-width:0">
+              <div style="font-size:13px"><strong><%= a.full_name || 'System' %></strong> <span style="color:var(--gray-500)"><%= a.action %></span> <%= a.entity_type ? a.entity_type : '' %></div>
+              <div class="text-xs text-muted truncate"><%= a.details || '—' %></div>
+              <div class="text-xs text-muted"><%= helpers.timeAgo(a.created_at) %></div>
+            </div>
+          </div>
+        <% }) %>
+      </div>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="card-header">
+      <div class="card-title">Latest Notices</div>
+      <a href="/admin/notices" class="btn btn-ghost btn-sm">All notices →</a>
+    </div>
+    <div class="card-body" style="padding:0">
+      <div style="max-height:340px;overflow-y:auto">
+        <% recentNotices.forEach(n => { %>
+          <div style="padding:12px 20px;border-bottom:1px solid var(--border)">
+            <div style="display:flex;align-items:center;gap:8px;margin-bottom:4px">
+              <% if (n.priority === 'urgent') { %><span class="badge badge-danger">URGENT</span><% } %>
+              <% if (n.priority === 'high') { %><span class="badge badge-warning">HIGH</span><% } %>
+              <% if (n.is_pinned) { %><span style="font-size:12px">📌</span><% } %>
+              <strong style="font-size:13px;flex:1" class="truncate"><%= n.title %></strong>
+            </div>
+            <div class="text-xs text-muted truncate"><%= n.content.slice(0, 100) %>…</div>
+            <div class="text-xs text-muted" style="margin-top:4px"><%= helpers.timeAgo(n.created_at) %> · by <%= n.posted_by_name || 'System' %></div>
+          </div>
+        <% }) %>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="card">
+  <div class="card-header">
+    <div class="card-title">Recently Added Students</div>
+    <a href="/admin/students" class="btn btn-ghost btn-sm">View all students →</a>
+  </div>
+  <div class="table-wrap">
+    <table class="data-table">
+      <thead><tr><th>Roll No</th><th>Name</th><th>Email</th><th>Course</th><th>Dept</th><th>Semester</th><th>Status</th><th>Actions</th></tr></thead>
+      <tbody>
+        <% recentStudents.forEach(s => { %>
+          <tr>
+            <td><strong><%= s.roll_number %></strong></td>
+            <td><div style="display:flex;align-items:center;gap:8px"><div class="avatar avatar-sm" style="background:<%= s.avatar_color %>"><%= helpers.initials(s.full_name) %></div><%= s.full_name %></div></td>
+            <td class="text-muted"><%= s.email %></td>
+            <td><%= s.course_name || '—' %></td>
+            <td><span class="badge badge-neutral"><%= s.dept_code || '—' %></span></td>
+            <td>Sem <%= s.current_semester %></td>
+            <td><% if (s.is_active) { %><span class="badge badge-success badge-dot">Active</span><% } else { %><span class="badge badge-neutral badge-dot">Inactive</span><% } %></td>
+            <td><a class="btn btn-ghost btn-sm" href="/admin/students/<%= s.id %>">View →</a></td>
+          </tr>
+        <% }) %>
+      </tbody>
+    </table>
+  </div>
+</div>
+
+<script>
+  document.querySelectorAll('canvas[data-chart="spark"]').forEach(c => {
+    const data = JSON.parse(c.getAttribute('data-data') || '[]');
+    ERP.Charts.spark(c, data, '#6366f1');
+  });
+</script>
+<%- include('../partials/layout-bottom') %>

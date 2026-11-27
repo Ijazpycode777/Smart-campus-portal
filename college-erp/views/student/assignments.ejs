@@ -1,0 +1,229 @@
+<%- include('../partials/layout-top') %>
+<%
+  const now = new Date();
+  function overdue(a) { return new Date(a.due_date) < now; }
+  function gradeColor(g) {
+    if (g === 'A+' || g === 'A') return 'success';
+    if (g === 'B+' || g === 'B') return 'info';
+    if (g === 'C') return 'warning';
+    if (g === 'D') return 'purple';
+    return 'danger';
+  }
+%>
+
+<div class="page-head">
+  <div>
+    <div class="crumbs"><a href="/student">Dashboard</a> / Assignments</div>
+    <h1>My Assignments</h1>
+  </div>
+</div>
+
+<div class="stats-grid">
+  <div class="stat-card slide-up">
+    <div class="stat-icon amber">⏳</div>
+    <div style="flex:1">
+      <div class="stat-label">Pending</div>
+      <div class="stat-value"><%= pending.length %></div>
+      <div class="stat-delta up">▲ Awaiting submission</div>
+    </div>
+  </div>
+  <div class="stat-card slide-up" style="animation-delay:.05s">
+    <div class="stat-icon blue">📥</div>
+    <div style="flex:1">
+      <div class="stat-label">Submitted</div>
+      <div class="stat-value"><%= submitted.length %></div>
+      <div class="stat-delta up">▲ Pending grading</div>
+    </div>
+  </div>
+  <div class="stat-card slide-up" style="animation-delay:.1s">
+    <div class="stat-icon green">✅</div>
+    <div style="flex:1">
+      <div class="stat-label">Graded</div>
+      <div class="stat-value"><%= graded.length %></div>
+      <div class="stat-delta up">▲ Results in</div>
+    </div>
+  </div>
+  <div class="stat-card slide-up" style="animation-delay:.15s">
+    <div class="stat-icon red">⚠️</div>
+    <div style="flex:1">
+      <div class="stat-label">Overdue</div>
+      <div class="stat-value"><%= pending.filter(overdue).length %></div>
+      <div class="stat-delta down">▼ Past due date</div>
+    </div>
+  </div>
+</div>
+
+<div class="tabs" style="margin-bottom:16px">
+  <button class="tab active" data-tab="pending">⏳ Pending (<%= pending.length %>)</button>
+  <button class="tab" data-tab="submitted">📥 Submitted (<%= submitted.length %>)</button>
+  <button class="tab" data-tab="graded">✅ Graded (<%= graded.length %>)</button>
+</div>
+
+<div class="tab-panel" data-panel="pending">
+  <div class="card">
+    <div class="card-header">
+      <div class="card-title">Pending Assignments</div>
+    </div>
+    <div class="card-body">
+      <% if (!pending.length) { %>
+        <div class="empty"><div class="empty-icon">✅</div><div class="empty-title">No pending assignments</div><div class="empty-sub">You're all caught up.</div></div>
+      <% } else { %>
+        <div class="grid" style="grid-template-columns:repeat(auto-fill,minmax(320px,1fr));gap:16px">
+          <% pending.forEach(a => { %>
+            <div class="stat-card" style="display:block;padding:18px">
+              <div style="display:flex;align-items:flex-start;gap:10px">
+                <div class="stat-icon amber" style="width:36px;height:36px;font-size:16px">📄</div>
+                <div style="flex:1;min-width:0">
+                  <div style="font-weight:800;font-size:14px" class="truncate"><%= a.title %></div>
+                  <div class="text-xs text-muted truncate" style="margin-top:2px"><%= a.subject_code %> · <%= a.class_name %></div>
+                </div>
+                <% if (overdue(a)) { %><span class="badge badge-danger">OVERDUE</span><% } %>
+              </div>
+              <div style="font-size:12px;color:var(--gray-600);margin:10px 0;line-height:1.5"><%= (a.description || '').slice(0, 100) %><% if ((a.description||'').length > 100) { %>…<% } %></div>
+              <div style="display:flex;align-items:center;justify-content:space-between;margin-top:12px;padding-top:12px;border-top:1px solid var(--border)">
+                <div>
+                  <div class="text-xs text-muted">Due Date</div>
+                  <div style="font-weight:700;color:<%= overdue(a) ? 'var(--danger)' : 'var(--gray-900)' %>"><%= helpers.formatDate(a.due_date) %></div>
+                </div>
+                <span class="badge badge-neutral">🎯 <%= a.total_marks %> marks</span>
+              </div>
+              <button class="btn btn-primary btn-block" style="margin-top:12px" onclick="openSubmit(<%= a.id %>, '<%= a.title.replace(/'/g, "\\'") %>')">📤 Submit Assignment</button>
+            </div>
+          <% }) %>
+        </div>
+      <% } %>
+    </div>
+  </div>
+</div>
+
+<div class="tab-panel" data-panel="submitted" style="display:none">
+  <div class="card">
+    <div class="card-header">
+      <div class="card-title">Submitted Assignments</div>
+    </div>
+    <div class="card-body">
+      <% if (!submitted.length) { %>
+        <div class="empty"><div class="empty-icon">📥</div><div class="empty-title">Nothing submitted yet</div><div class="empty-sub">Your submitted assignments will appear here.</div></div>
+      <% } else { %>
+        <div class="table-wrap">
+          <table class="data-table">
+            <thead><tr><th>Assignment</th><th>Subject</th><th>Due</th><th>Submitted</th><th>Total Marks</th><th>Status</th></tr></thead>
+            <tbody>
+              <% submitted.forEach(a => { %>
+                <tr>
+                  <td><strong><%= a.title %></strong></td>
+                  <td><%= a.subject_name %><div class="text-xs text-muted"><%= a.subject_code %></div></td>
+                  <td class="text-xs text-muted"><%= helpers.formatDate(a.due_date) %></td>
+                  <td class="text-xs text-muted"><%= helpers.timeAgo(a.submitted_at) %></td>
+                  <td><span class="badge badge-neutral">🎯 <%= a.total_marks %></span></td>
+                  <td><span class="badge badge-info badge-dot">Awaiting grading</span></td>
+                </tr>
+              <% }) %>
+            </tbody>
+          </table>
+        </div>
+      <% } %>
+    </div>
+  </div>
+</div>
+
+<div class="tab-panel" data-panel="graded" style="display:none">
+  <div class="card">
+    <div class="card-header">
+      <div class="card-title">Graded Assignments</div>
+    </div>
+    <div class="card-body">
+      <% if (!graded.length) { %>
+        <div class="empty"><div class="empty-icon">✅</div><div class="empty-title">No graded assignments</div><div class="empty-sub">Your graded results will appear here.</div></div>
+      <% } else { %>
+        <div class="grid" style="grid-template-columns:repeat(auto-fill,minmax(360px,1fr));gap:16px">
+          <% graded.forEach(a => { const pct = a.total_marks ? Math.round(a.marks_obtained / a.total_marks * 100) : 0; %>
+            <div class="stat-card" style="display:block;padding:18px">
+              <div style="display:flex;align-items:flex-start;gap:10px">
+                <div class="stat-icon green" style="width:36px;height:36px;font-size:16px">✅</div>
+                <div style="flex:1;min-width:0">
+                  <div style="font-weight:800;font-size:14px" class="truncate"><%= a.title %></div>
+                  <div class="text-xs text-muted truncate" style="margin-top:2px"><%= a.subject_code %> · <%= a.subject_name %></div>
+                </div>
+                <span class="badge badge-<%= gradeColor(helpers.marksToGrade ? helpers.marksToGrade(a.marks_obtained, a.total_marks) : (pct >= 90 ? 'A+' : pct >= 80 ? 'A' : pct >= 70 ? 'B+' : pct >= 60 ? 'B' : pct >= 50 ? 'C' : 'F')) %>"><%= a.marks_obtained %>/<%= a.total_marks %></span>
+              </div>
+              <div style="display:flex;align-items:center;gap:10px;margin:12px 0">
+                <svg data-ring="<%= pct %>" data-ring-color="<%= pct >= 75 ? '#10b981' : pct >= 50 ? '#f59e0b' : '#ef4444' %>" data-ring-size="44" style="width:44px;height:44px"></svg>
+                <div>
+                  <div class="text-xs text-muted">Score</div>
+                  <div style="font-weight:800;font-size:16px"><%= pct %>%</div>
+                </div>
+              </div>
+              <% if (a.feedback) { %>
+                <div style="padding:10px;background:var(--surface-2);border-radius:8px;margin-top:8px">
+                  <div class="text-xs text-muted" style="margin-bottom:4px">💬 Teacher Feedback</div>
+                  <div style="font-size:13px;color:var(--gray-700);line-height:1.5"><%= a.feedback %></div>
+                </div>
+              <% } %>
+            </div>
+          <% }) %>
+        </div>
+      <% } %>
+    </div>
+  </div>
+</div>
+
+<!-- Submit Assignment Modal -->
+<div class="modal-overlay hidden" id="submitModal" style="display:none">
+  <div class="modal modal-md">
+    <div class="modal-header">
+      <div class="modal-title">📤 Submit Assignment</div>
+      <button class="icon-btn" onclick="document.getElementById('submitModal').style.display='none'">×</button>
+    </div>
+    <form id="submitForm" onsubmit="submitAssignment(event)">
+      <div class="modal-body">
+        <div class="form-group">
+          <label class="form-label">Assignment</label>
+          <div style="font-weight:700" id="assignTitle">—</div>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Submission Text <span class="req">*</span></label>
+          <textarea class="form-textarea" name="submission_text" rows="6" placeholder="Type your answer or paste your submission text here" required></textarea>
+        </div>
+        <div class="form-group">
+          <label class="form-label">File URL (optional)</label>
+          <input class="form-control" name="file_url" placeholder="Link to your file (Google Drive, Dropbox, etc.)">
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-ghost" onclick="document.getElementById('submitModal').style.display='none'">Cancel</button>
+        <button type="submit" class="btn btn-primary">Submit</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<script>
+  let currentAssignId = null;
+  function openSubmit(id, title) {
+    currentAssignId = id;
+    document.getElementById('assignTitle').textContent = title;
+    document.getElementById('submitModal').style.display = 'flex';
+  }
+  async function submitAssignment(e) {
+    e.preventDefault();
+    const fd = new FormData(e.target);
+    const body = { submission_text: fd.get('submission_text'), file_url: fd.get('file_url') };
+    try {
+      const res = await ERP.api('/api/student/assignments/' + currentAssignId + '/submit', { method: 'POST', body });
+      ERP.toast('Submitted', res.message || 'Assignment submitted successfully.', 'success');
+      setTimeout(() => location.reload(), 800);
+    } catch (err) { ERP.toast('Error', err.message, 'error'); }
+  }
+  document.querySelectorAll('.tab').forEach(t => {
+    t.addEventListener('click', () => {
+      document.querySelectorAll('.tab').forEach(x => x.classList.remove('active'));
+      t.classList.add('active');
+      const panel = t.getAttribute('data-tab');
+      document.querySelectorAll('.tab-panel').forEach(p => {
+        p.style.display = p.getAttribute('data-panel') === panel ? '' : 'none';
+      });
+    });
+  });
+</script>
+<%- include('../partials/layout-bottom') %>
